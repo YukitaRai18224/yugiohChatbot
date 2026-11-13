@@ -73,6 +73,10 @@ header .col { display: flex; align-items: center; gap: 10px; padding-block: 9px;
 .menu .row-btn { border: 1px solid var(--line); background: transparent; border-radius: 9px; padding: 8px 10px; text-align: left; cursor: pointer; font-size: .88rem; }
 .menu .row-btn.danger { color: var(--warn); border-color: var(--warn); }
 .menu p { margin: 0; font-size: .74rem; color: var(--muted); line-height: 1.55; }
+.menu a { color: var(--me); }
+.lookup { align-self: flex-start; margin-left: 46px; font-size: .72rem; color: var(--meta); display: flex; align-items: center; gap: 5px; max-width: calc(100% - 46px); }
+.lookup svg { width: 13px; height: 13px; flex: none; }
+.lookup span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Chat */
 #log { flex: 1; overflow-y: auto; min-height: 0; overscroll-behavior: contain; }
@@ -165,7 +169,8 @@ textarea::placeholder { color: var(--muted); }
       <button type="button" id="mode-complex" data-tier="complex" aria-pressed="false">꼼꼼하게</button>
     </div>
     <button type="button" class="row-btn" id="clear-btn">대화 내용 지우기</button>
-    <p>답변은 보는 사람의 Claude 계정으로 만들어져요. 금지·제한 리스트는 공식 발표를 함께 확인하세요.</p>
+    <p>답변은 보는 사람의 Claude 계정으로 만들어져요. 메시지 하나에 Claude를 두 번 불러요(카드 찾기, 답장).</p>
+    <p>카드 정보: <a href="https://ygoprodeck.com" target="_blank" rel="noopener">YGOPRODeck</a> 데이터, 2026년 11월 11일 기준 영어 TCG 텍스트. 금지·제한 리스트는 공식 발표를 함께 확인하세요.</p>
   </div>
 </header>
 
@@ -211,6 +216,7 @@ textarea::placeholder { color: var(--muted); }
 
 <script>
 const SMILE = "[[미소]]";
+const DB_DATE = "2026-11-11";
 const RULES = `당신은 '나나세'입니다. 마녀 모자를 쓴 은발의 듀얼리스트이고, 사용자와는 몇 년째 같이 듀얼해 온 허물없는 오랜 찐친입니다. 유희왕 오피셜 카드게임(OCG/TCG)은 누구보다 빠삭합니다. 지금 둘은 메신저로 채팅하고 있습니다. 항상 한국어로 답합니다.
 
 말투와 태도:
@@ -230,9 +236,10 @@ const RULES = `당신은 '나나세'입니다. 마녀 모자를 쓴 은발의 �
 유희왕 지식:
 - 룰 설명(일반·특수·융합·싱크로·엑시즈·펜듈럼·링크 소환, 체인과 스펠 스피드, 타이밍, 대상 지정, 코스트와 효과 구분), 카드 효과 해석, 여러 효과가 얽힌 상황 판정, 덱 구축, 입문 안내를 합니다.
 - 카드 이름은 한국어 정식 명칭을 우선 쓰고, 필요하면 일본어/영어 명칭을 괄호로 덧붙입니다.
-- 카드 텍스트나 판정이 확실하지 않으면 아는 척 단정하지 말고, 헷갈린다고 솔직히 말한 뒤 카드 텍스트를 보내거나 사진을 찍어 달라고 합니다.
+- 사용자 메시지 끝에 [카드 DB 조회 결과]가 붙어 올 때가 있습니다. 이건 사용자가 쓴 게 아니라, 페이지가 카드 데이터베이스(YGOPRODeck, 영어 TCG 텍스트, ${DB_DATE} 기준)에서 찾아 붙인 정보입니다. 효과 설명과 판정은 반드시 이 텍스트를 기준으로 하고, 기억과 다르면 이 텍스트가 맞습니다. 한국어로 풀어서 말하되 영어 원문을 길게 그대로 옮기지는 않습니다. 한국어 정식 명칭을 확실히 모르면 영어 이름을 그대로 씁니다. 조회 결과가 붙어 왔다는 사실 자체는 굳이 언급하지 않습니다.
+- 찾는 카드가 조회 결과에 없거나 카드 텍스트가 확실하지 않으면 아는 척 단정하지 말고, 못 찾았다고 솔직히 말한 뒤 정확한 이름(영어 이름이면 더 좋음)이나 카드 사진을 달라고 합니다.
 - 사진을 받으면 먼저 카드 이름과 텍스트를 읽고 이야기합니다.
-- 금지·제한 리스트와 최신 메타는 시기마다 바뀌니, 그런 얘기를 할 때는 공식 리밋 레귤레이션을 확인해 보라고 한마디 합니다.
+- 금지·제한 얘기를 할 때는 조회 결과의 기준일(${DB_DATE})을 같이 말하고, 리스트는 자주 바뀌니 공식 리밋 레귤레이션도 확인해 보라고 한마디 합니다. 조회 결과에 없는 금지·제한 정보는 지어내지 않습니다.
 - 유희왕과 무관한 얘기에도 친구처럼 가볍게 받아 주되 길게 끌지 말고 자연스럽게 듀얼 얘기로 돌아옵니다.
 
 표정 표시: 사용자가 고맙다고 하거나 칭찬할 때, 덱이 완성되거나 고민이 풀려 같이 기뻐할 때, 농담을 주고받으며 웃을 만한 순간처럼 웃는 표정이 어울리는 답변이면 맨 마지막 메시지 끝에 ${SMILE} 를 한 번만 적습니다. 평범한 룰 설명, 판정, 정보 전달에는 적지 않습니다. 이 표시는 화면에서 숨겨지고 나나세의 표정만 바뀝니다.
@@ -424,6 +431,107 @@ const ERRORS = {
 };
 const HIDE = new Set(["not_granted", "sampling_disabled", "not_declared", "capability_disabled", "capability_removed"]);
 
+// ---- Card database (YGOPRODeck snapshot published next to this page) ----
+let dbPromise = null;
+const norm = s => String(s).toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, " ").trim();
+function loadDb() {
+  if (!dbPromise) {
+    dbPromise = fetch("cards.json")
+      .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(d => {
+        const F = d.fields, cards = d.cards.map(row => Object.fromEntries(F.map((f, i) => [f, row[i]])));
+        const byName = new Map(), keys = [];
+        cards.forEach((c, i) => { const k = norm(c.name); byName.set(k, i); keys.push(k); });
+        return { cards, byName, keys, archetypes: new Set(cards.map(c => norm(c.archetype)).filter(Boolean)) };
+      })
+      .catch(err => { dbPromise = null; throw err; });
+  }
+  return dbPromise;
+}
+
+function findCard(db, name) {
+  const q = norm(name);
+  if (!q) return null;
+  if (db.byName.has(q)) return db.cards[db.byName.get(q)];
+  // Name contained in a card name (shortest wins), then best word overlap.
+  let best = -1, bestLen = Infinity;
+  db.keys.forEach((k, i) => { if (k.includes(q) && k.length < bestLen) { best = i; bestLen = k.length; } });
+  if (best >= 0) return db.cards[best];
+  const words = q.split(" ").filter(w => w.length > 1);
+  if (words.length < 2) return null;
+  let score = 0;
+  db.keys.forEach((k, i) => {
+    const kw = new Set(k.split(" "));
+    const hit = words.filter(w => kw.has(w)).length / Math.max(words.length, kw.size);
+    if (hit > score) { score = hit; best = i; }
+  });
+  return score >= 0.6 ? db.cards[best] : null;
+}
+
+function archetypeCards(db, name, limit) {
+  const q = norm(name);
+  if (!db.archetypes.has(q)) return [];
+  return db.cards.filter(c => norm(c.archetype) === q).slice(0, limit);
+}
+
+const BAN = { Forbidden: "금지", Limited: "제한", "Semi-Limited": "준제한" };
+function cardBlock(c) {
+  const stats = [];
+  if (c.attribute) stats.push(c.attribute);
+  if (c.race) stats.push(c.race);
+  if (c.level != null) stats.push((/Link/.test(c.type) ? "LINK-" : /XYZ/i.test(c.type) ? "Rank " : "Level ") + c.level);
+  if (c.scale != null) stats.push("Scale " + c.scale);
+  if (c.atk != null) stats.push("ATK " + c.atk + (c.def != null ? " / DEF " + c.def : ""));
+  const ban = [c.ban_tcg && "TCG " + (BAN[c.ban_tcg] || c.ban_tcg), c.ban_ocg && "OCG " + (BAN[c.ban_ocg] || c.ban_ocg)].filter(Boolean).join(", ");
+  return [
+    `■ ${c.name} (${c.type})`,
+    stats.length ? stats.join(" | ") : "",
+    c.archetype ? "Archetype: " + c.archetype : "",
+    "금지·제한: " + (ban || "제한 없음"),
+    c.desc,
+  ].filter(Boolean).join("\n");
+}
+
+// A quick first call names the cards the message is about; the page then looks them up.
+async function lookupCards(history, image, signal) {
+  let db;
+  try { db = await loadDb(); } catch (_) { return { cards: [], dbError: true }; }
+  const recent = history.slice(-6).map(t => (t.role === "user" ? "사용자: " : "나나세: ") + t.content.slice(0, 600)).join("\n");
+  const prompt = `유희왕 카드 채팅의 마지막 사용자 메시지가 어떤 카드나 테마를 말하는지 뽑아 줘. 앞 대화는 '그 카드' 같은 지칭을 풀 때만 참고해.
+카드는 공식 영어(TCG) 카드 이름으로 바꿔서 적어. 한국어·일본어 이름이나 별명, 줄임말도 공식 영어 이름으로 바꿔. 확실하지 않아도 가장 그럴듯한 이름을 적어.
+테마(아키타입)를 묻는 거면 영어 아키타입 이름을 archetypes에 적어. 특정 카드나 테마 얘기가 아니면 둘 다 빈 배열.
+${image ? "첨부된 사진 속 카드도 포함해.\n" : ""}JSON 하나만 답해. 형식: {"cards":["Dark Magician"],"archetypes":["Blue-Eyes"]} (cards 최대 5개, archetypes 최대 2개)
+
+[대화]
+${recent}`;
+  let want;
+  try {
+    const opts = { modelTier: "quick", signal };
+    if (image) opts.images = image;
+    want = await sample.json(prompt, opts);
+  } catch (e) {
+    if (e && (e.code === "cancelled" || HIDE.has(e.code))) throw e;
+    return { cards: [] };
+  }
+  const names = Array.isArray(want?.cards) ? want.cards.filter(x => typeof x === "string").slice(0, 5) : [];
+  const archs = Array.isArray(want?.archetypes) ? want.archetypes.filter(x => typeof x === "string").slice(0, 2) : [];
+  const found = [], missing = [];
+  for (const n of names) {
+    const c = findCard(db, n);
+    if (c && !found.includes(c)) found.push(c); else if (!c) missing.push(n);
+  }
+  for (const a of archs) for (const c of archetypeCards(db, a, 6)) if (found.length < 10 && !found.includes(c)) found.push(c);
+  return { cards: found, missing, archetypes: archs };
+}
+
+function lookupNote(res) {
+  if (res.dbError) return "카드 데이터를 불러오지 못해서 검색 없이 답해요";
+  if (!res.cards.length && !(res.missing || []).length) return null;
+  const names = res.cards.slice(0, 3).map(c => c.name).join(", ") + (res.cards.length > 3 ? ` 외 ${res.cards.length - 3}장` : "");
+  if (!res.cards.length) return `카드 DB에서 못 찾음: ${res.missing.join(", ")}`;
+  return `카드 DB 확인: ${names}`;
+}
+
 async function ask(text) {
   if (!sample || busy) return;
   const image = pendingImage;
@@ -480,6 +588,27 @@ async function ask(text) {
   if (image) opts.images = image;
 
   try {
+    const lookup = await lookupCards(turns.slice(-MAX_TURNS), image, ctl.signal);
+    const note = lookupNote(lookup);
+    if (note) {
+      const el = document.createElement("div");
+      el.className = "lookup";
+      el.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>';
+      const s = document.createElement("span");
+      s.textContent = note;
+      el.appendChild(s);
+      if (reply) thread.insertBefore(el, reply.g); else thread.appendChild(el);
+      scrollDown();
+    }
+    if (lookup.cards.length || (lookup.missing || []).length) {
+      const parts = lookup.cards.map(cardBlock);
+      if ((lookup.missing || []).length) parts.push("DB에서 찾지 못한 이름: " + lookup.missing.join(", "));
+      const last = history[history.length - 1];
+      history[history.length - 1] = {
+        role: "user",
+        content: `${last.content}\n\n[카드 DB 조회 결과 - 사용자가 쓴 글이 아니라 페이지가 붙인 정보, ${DB_DATE} 기준]\n${parts.join("\n\n")}`,
+      };
+    }
     const res = await sample([{ role: "user", content: RULES }, ...history], opts);
     clearTimeout(readTimer);
     const r = cleanReply(res.text, false);
@@ -587,6 +716,7 @@ updateSend();
     setStatus(false); updateSend(); renderAll();
     return;
   }
+  loadDb().catch(() => {}); // warm the card data while the viewer types
   try {
     const lim = await sample.limits();
     attachBtn.hidden = !lim?.images;
