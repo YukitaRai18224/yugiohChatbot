@@ -1,0 +1,17 @@
+# Render Blueprint: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: yugioh-chatbot
+    runtime: docker
+    plan: free      # 무료 플랜은 15분간 요청이 없으면 잠들어 첫 접속이 느립니다. 상시 운영은 starter 이상
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false   # 대시보드에서 직접 입력 (저장소에 키를 넣지 마세요)
+      - key: CLAUDE_MODEL
+        value: claude-opus-5-5
+      - key: CLAUDE_EFFORT
+        value: medium
+      - key: RATE_LIMIT_PER_HOUR
+        value: "30"

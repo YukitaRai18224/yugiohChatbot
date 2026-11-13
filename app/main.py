@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import os
+import time
 import uuid
+from collections import defaultdict, deque
 from pathlib import Path
 from typing import Any, AsyncIterator
 
 import anthropic
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -19,6 +21,8 @@ MODEL = os.environ.get("CLAUDE_MODEL", "claude-opus-5-5")
 EFFORT = os.environ.get("CLAUDE_EFFORT", "medium")  # low | medium | high | xhigh | max
 MAX_TOKENS = 64000
 MAX_SESSIONS = 500
+# 공개 배포 시 API 비용 보호: IP당 1시간에 보낼 수 있는 메시지 수 (0이면 제한 없음)
+RATE_LIMIT_PER_HOUR = int(os.environ.get("RATE_LIMIT_PER_HOUR", "30"))
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
@@ -30,6 +34,29 @@ client = anthropic.AsyncAnthropic()
 
 # 세션별 대화 기록 (메모리 저장 - 서버를 재시작하면 사라집니다)
 sessions: dict[str, list[dict[str, Any]]] = {}
+
+
+_hits: dict[str, deque[float]] = defaultdict(deque)
+
+
+def _client_ip(request: Request) -> str:
+    # Render/Railway 등 프록시 뒤에서는 X-Forwarded-For의 첫 번째 값이 실제 IP
+    fwd = request.headers.get("x-forwarded-for")
+    if fwd:
+        return fwd.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def _check_rate_limit(ip: str) -> None:
+    if RATE_LIMIT_PER_HOUR <= 0:
+        return
+    now = time.monotonic()
+    q = _hits[ip]
+    while q and now - q[0] > 3600:
+        q.popleft()
+    if len(q) >= RATE_LIMIT_PER_HOUR:
+        raise HTTPException(status_code=429, detail="요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.")
+    q.append(now)
 
 
 class ChatRequest(BaseModel):
@@ -91,13 +118,19 @@ async def _stream_reply(history: list[dict[str, Any]], user_text: str) -> AsyncI
     history.append({"role": "assistant", "content": final.content})
 
 
+@app.get("/healthz")
+async def healthz() -> dict[str, str]:
+    return {"status": "ok"}
+
+
 @app.get("/")
 async def index() -> FileResponse:
     return FileResponse(STATIC_DIR / "index.html")
 
 
 @app.post("/api/chat")
-async def chat(req: ChatRequest) -> StreamingResponse:
+async def chat(req: ChatRequest, request: Request) -> StreamingResponse:
+    _check_rate_limit(_client_ip(request))
     session_id = req.session_id or str(uuid.uuid4())
     history = _get_history(session_id)
     return StreamingResponse(

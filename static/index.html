@@ -88,6 +88,7 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ session_id: sessionId, message: text }),
         });
+        if (res.status === 429) throw new Error("요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.");
         if (!res.ok) throw new Error("HTTP " + res.status);
         sessionId = res.headers.get("X-Session-Id");
         try { sessionStorage.setItem("ygo-session", sessionId); } catch (_) {}
