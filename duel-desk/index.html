@@ -1,0 +1,478 @@
+<title>듀얼 상담소</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: one-screen chat. Header with the name and mode switch, scrolling log, composer pinned at the bottom.
+   Color roles borrow from card frames: spell green for the viewer's turns, trap rose for warnings, gold foil for the brand mark. */
+:root {
+  --bg: #eef1f4;
+  --surface: #ffffff;
+  --sunken: #e3e8ee;
+  --ink: #17202b;
+  --muted: #5b6878;
+  --line: #d3dae3;
+  --spell: #13785f;
+  --spell-ink: #ffffff;
+  --trap: #a3305e;
+  --foil: #b07d1a;
+  --font-display: "Black Han Sans", "IBM Plex Sans KR", "Apple SD Gothic Neo", sans-serif;
+  --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f141b; --surface: #18202a; --sunken: #121921; --ink: #e6ebf1; --muted: #93a0b0;
+    --line: #2a3542; --spell: #2fae8c; --spell-ink: #06150f; --trap: #e0689a; --foil: #e1b04c;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f141b; --surface: #18202a; --sunken: #121921; --ink: #e6ebf1; --muted: #93a0b0;
+  --line: #2a3542; --spell: #2fae8c; --spell-ink: #06150f; --trap: #e0689a; --foil: #e1b04c;
+  color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+.wrap { width: 100%; max-width: 780px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+header { background: var(--surface); border-bottom: 1px solid var(--line); flex: none; }
+header .wrap { display: flex; align-items: center; gap: 12px; padding-block: 12px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; margin-right: auto; min-width: 0; }
+.avatar {
+  flex: none; width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: #fff;
+  box-shadow: 0 0 0 2px var(--foil);
+}
+.turn.bot { flex-direction: row; align-items: flex-start; gap: 10px; }
+.turn.bot .avatar { width: 36px; height: 36px; margin-top: 18px; }
+.turn.bot .col { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.portrait {
+  flex: none; width: 150px; padding: 7px; border-radius: 6px; align-self: flex-start;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--foil) 70%, var(--surface)), var(--foil));
+  box-shadow: 0 2px 10px rgb(0 0 0 / .14);
+}
+.portrait img { display: block; width: 100%; height: auto; aspect-ratio: 420 / 521; max-width: 100%; border-radius: 2px; background: #fff; box-shadow: inset 0 0 0 1px rgb(0 0 0 / .2); }
+.portrait figcaption { font-family: var(--font-display); color: #fff; font-size: .95rem; text-align: center; padding-top: 5px; letter-spacing: .04em; text-shadow: 0 1px 2px rgb(0 0 0 / .3); }
+.intro-head { display: flex; gap: 18px; align-items: flex-start; }
+.intro-head .text { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+@media (max-width: 520px) { .portrait { width: 108px; padding: 5px; } .intro-head { gap: 12px; } }
+h1 { font-family: var(--font-display); font-weight: 400; font-size: 1.35rem; margin: 0; letter-spacing: .01em; }
+.sub { font-size: .78rem; color: var(--muted); margin: 0; }
+.controls { display: flex; gap: 8px; align-items: center; }
+.seg { display: inline-flex; background: var(--sunken); border-radius: 8px; padding: 3px; }
+.seg button { border: 0; background: transparent; color: var(--muted); padding: 5px 10px; border-radius: 6px; font: inherit; font-size: .82rem; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / .12); }
+.ghost { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 6px 12px; font: inherit; font-size: .85rem; cursor: pointer; }
+button:focus-visible, textarea:focus-visible, .chip:focus-visible { outline: 2px solid var(--spell); outline-offset: 2px; }
+
+#log { flex: 1; overflow-y: auto; min-height: 0; }
+#log .wrap { padding-block: 20px; display: flex; flex-direction: column; gap: 14px; }
+.turn { display: flex; flex-direction: column; gap: 4px; max-width: 92%; min-width: 0; }
+.turn.user { align-self: flex-end; align-items: flex-end; }
+.who { font-family: var(--font-mono); font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.bubble { padding: 10px 14px; border-radius: 12px; line-height: 1.7; word-break: break-word; min-width: 0; }
+.user .bubble { background: var(--spell); color: var(--spell-ink); white-space: pre-wrap; border-bottom-right-radius: 4px; }
+.bot .bubble { background: var(--surface); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+.bot .bubble.thinking { color: var(--muted); }
+.bubble img.attached { display: block; max-width: 160px; border-radius: 6px; margin-bottom: 6px; }
+.bubble p { margin: 0 0 .6em; } .bubble p:last-child { margin-bottom: 0; }
+.bubble h3, .bubble h4 { font-size: 1rem; margin: .8em 0 .3em; }
+.bubble ul, .bubble ol { margin: .3em 0 .6em; padding-left: 1.3em; }
+.bubble li { margin: .15em 0; }
+.bubble code { font-family: var(--font-mono); font-size: .86em; background: var(--sunken); padding: 1px 5px; border-radius: 4px; }
+.bubble pre { background: var(--sunken); padding: 10px; border-radius: 8px; overflow-x: auto; }
+.bubble pre code { background: none; padding: 0; }
+.bubble strong { font-weight: 600; }
+.note { font-size: .8rem; color: var(--trap); }
+
+.intro { display: flex; flex-direction: column; gap: 14px; padding-top: 4vh; }
+.intro h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.6rem; margin: 0; text-wrap: balance; }
+.intro p { margin: 0; color: var(--muted); line-height: 1.7; max-width: 60ch; }
+.chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.chip {
+  text-align: left; border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  border-radius: 10px; padding: 10px 12px; font: inherit; font-size: .88rem; cursor: pointer; line-height: 1.5;
+  display: flex; flex-direction: column; gap: 2px; min-width: 0;
+}
+.chip:hover { border-color: var(--spell); }
+.chip .tag { font-family: var(--font-mono); font-size: .66rem; letter-spacing: .08em; color: var(--spell); text-transform: uppercase; }
+.speed { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; font-size: .78rem; }
+.speed div { background: var(--sunken); border-radius: 8px; padding: 8px 10px; line-height: 1.45; }
+.speed b { font-family: var(--font-mono); font-weight: 500; color: var(--foil); display: block; }
+.banner { border: 1px solid var(--trap); color: var(--ink); background: color-mix(in srgb, var(--trap) 8%, var(--surface)); border-radius: 10px; padding: 12px 14px; line-height: 1.6; font-size: .9rem; }
+
+footer { background: var(--surface); border-top: 1px solid var(--line); flex: none; padding-bottom: env(safe-area-inset-bottom, 0px); }
+footer .wrap { padding-block: 10px; display: flex; flex-direction: column; gap: 6px; }
+.attach-row { display: flex; align-items: center; gap: 8px; font-size: .8rem; color: var(--muted); }
+.attach-row img { height: 40px; border-radius: 4px; }
+form { display: flex; gap: 8px; align-items: flex-end; }
+textarea {
+  flex: 1; min-width: 0; resize: none; font: inherit; line-height: 1.5; padding: 10px 12px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--bg); color: var(--ink); max-height: 160px;
+}
+.icon-btn { flex: none; width: 42px; height: 42px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); cursor: pointer; display: grid; place-items: center; }
+.icon-btn svg { width: 20px; height: 20px; }
+#send { flex: none; height: 42px; padding: 0 18px; border: 0; border-radius: 10px; background: var(--spell); color: var(--spell-ink); font: inherit; font-weight: 600; cursor: pointer; }
+#send.stop { background: var(--trap); color: #fff; }
+#send:disabled { opacity: .5; cursor: default; }
+.fine { font-size: .72rem; color: var(--muted); }
+@media (max-width: 520px) {
+  .sub { display: none; }
+  .speed { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .turn { animation: rise .18s ease-out; }
+  @keyframes rise { from { transform: translateY(4px); opacity: .6; } to { transform: none; opacity: 1; } }
+}
+</style>
+
+<header>
+  <div class="wrap">
+    <div class="brand">
+      <img class="avatar" id="hdr-avatar" src="nanase-face.webp" alt="나나세">
+      <div>
+        <h1>듀얼 상담소</h1>
+        <p class="sub">유희왕 OCG·TCG 룰 판정 · 카드 해석 · 덱 상담</p>
+      </div>
+    </div>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="답변 방식">
+        <button type="button" id="mode-quick" data-tier="quick" aria-pressed="false">빠르게</button>
+        <button type="button" id="mode-default" data-tier="default" aria-pressed="true">기본</button>
+        <button type="button" id="mode-complex" data-tier="complex" aria-pressed="false">정밀 판정</button>
+      </div>
+      <button type="button" class="ghost" id="reset">새 대화</button>
+    </div>
+  </div>
+</header>
+
+<main id="log" aria-live="polite">
+  <div class="wrap" id="thread">
+    <section class="intro" id="intro">
+      <div class="intro-head">
+        <figure class="portrait" style="margin:0">
+          <img src="nanase-full.webp" alt="상담가 나나세" width="420" height="521">
+          <figcaption>나나세</figcaption>
+        </figure>
+        <div class="text">
+          <h2>체인이 꼬였나요? 카드 텍스트가 헷갈리나요?</h2>
+          <p>상담가 나나세가 룰 판정부터 카드 효과 해석, 덱 구성까지 도와드립니다. 카드 사진을 첨부하면 텍스트를 읽고 설명해 드려요. 아래 질문을 눌러 바로 시작할 수도 있습니다.</p>
+        </div>
+      </div>
+      <div class="chips" id="chips">
+        <button type="button" class="chip" id="chip-1"><span class="tag">체인</span>체인 3까지 쌓였을 때 처리 순서와, 중간에 무효 효과가 끼면 어떻게 되는지 알려줘</button>
+        <button type="button" class="chip" id="chip-2"><span class="tag">텍스트</span>'~할 수 있다'와 '~한다' 효과는 타이밍을 놓치는 데 어떤 차이가 있어?</button>
+        <button type="button" class="chip" id="chip-3"><span class="tag">소환</span>링크 소환은 엑시즈 소환과 소재 처리 방식이 어떻게 달라?</button>
+        <button type="button" class="chip" id="chip-4"><span class="tag">덱 구축</span>입문자가 첫 덱을 고를 때 기준과 메인 덱 40장 구성 비율을 알려줘</button>
+      </div>
+      <div class="speed" aria-label="스펠 스피드 요약">
+        <div><b>SPEED 1</b>기동·유발 효과, 일반 마법. 체인 1로만 발동</div>
+        <div><b>SPEED 2</b>유발 즉시·속공 마법·일반 함정. 1·2에 체인</div>
+        <div><b>SPEED 3</b>카운터 함정. 그 무엇에도 체인 가능</div>
+      </div>
+      <div class="banner" id="unavailable" hidden>이 화면에서는 Claude에 연결할 수 없습니다. claude.ai에 로그인한 상태로 이 페이지를 열어 주세요.</div>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="attach-row" id="attach-row" hidden>
+      <img id="attach-preview" alt="첨부한 카드 이미지">
+      <span id="attach-name"></span>
+      <button type="button" class="ghost" id="attach-clear">빼기</button>
+    </div>
+    <form id="form">
+      <button type="button" class="icon-btn" id="attach-btn" title="카드 사진 첨부" aria-label="카드 사진 첨부" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2.5" width="14" height="19" rx="1.5"/><rect x="8" y="6" width="8" height="7" rx=".5"/><path d="M8 16h8M8 18.5h5"/></svg>
+      </button>
+      <input type="file" id="file" accept="image/*" hidden>
+      <textarea id="input" rows="1" placeholder="질문을 입력하세요" aria-label="질문"></textarea>
+      <button type="submit" id="send">전송</button>
+    </form>
+    <p class="fine">답변은 보는 사람의 Claude 계정으로 생성됩니다. 금지·제한 리스트는 공식 발표를 함께 확인하세요.</p>
+  </div>
+</footer>
+
+<script>
+const SMILE = "[[미소]]";
+const RULES = `당신은 유희왕 오피셜 카드게임(OCG/TCG) 전문 상담가 '나나세'입니다. 마녀 모자를 쓴 은발의 상담가로, 상냥하고 차분한 존댓말로 답합니다. 자기소개를 길게 하지는 마세요. 항상 한국어로 답합니다.
+
+표정 표시: 사용자가 고맙다고 하거나 칭찬할 때, 덱이 완성되거나 고민이 해결되어 함께 기뻐할 순간처럼 웃는 표정이 어울리는 답변이면 답변 맨 끝에 ${SMILE} 를 한 번만 적으세요. 그 밖의 답변(평범한 룰 설명, 판정, 정보 전달)에는 적지 마세요. 이 표시는 화면에서 숨겨지고 나나세의 표정만 바뀝니다.
+
+도와줄 수 있는 것: 룰 설명(일반·특수·융합·싱크로·엑시즈·펜듈럼·링크 소환, 체인과 스펠 스피드, 타이밍, 대상 지정, 코스트와 효과 구분), 카드 효과 해석, 여러 효과가 얽힌 상황 판정, 덱 구축 상담, 입문자 안내.
+
+답변 원칙:
+- 카드 이름은 한국어 정식 명칭을 우선 쓰고, 필요하면 일본어/영어 명칭을 괄호로 덧붙입니다.
+- 카드 텍스트나 판정이 확실하지 않으면 단정하지 말고 불확실하다고 밝힌 뒤, 카드 텍스트를 붙여 넣거나 카드 사진을 첨부해 달라고 요청하세요.
+- 사진이 첨부되면 먼저 카드 이름과 텍스트를 읽어 정리한 뒤 설명하세요.
+- 금지·제한 리스트와 최신 메타는 시기에 따라 바뀌므로, 관련 답변에는 공식 리밋 레귤레이션을 확인하라고 안내하세요.
+- 상황 판정은 발동 → 체인 구축 → 역순 처리처럼 단계를 나눠 설명하세요.
+- 짧은 질문에는 짧게, 복잡한 판정에는 필요한 만큼 자세히 답하세요. 마크다운(굵게, 목록)은 써도 되지만 표는 쓰지 마세요.
+- 유희왕과 무관한 질문에는 간단히 답하되 유희왕 상담 챗봇임을 부드럽게 안내하세요.
+
+이 메시지는 안내문입니다. 이어지는 대화에 답하세요.`;
+
+const STORE_KEY = "duel-desk-v1";
+const MAX_TURNS = 24;
+const thread = document.getElementById("thread");
+const log = document.getElementById("log");
+const intro = document.getElementById("intro");
+const form = document.getElementById("form");
+const input = document.getElementById("input");
+const send = document.getElementById("send");
+const fileInput = document.getElementById("file");
+const attachBtn = document.getElementById("attach-btn");
+const attachRow = document.getElementById("attach-row");
+
+let sample = null;
+let turns = [];          // [{role, content}]
+let tier = "default";
+let busy = false;
+let ctl = null;
+let pendingImage = null;
+
+function load() {
+  try {
+    const s = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
+    if (s && Array.isArray(s.turns)) turns = s.turns.filter(t => t && (t.role === "user" || t.role === "assistant") && typeof t.content === "string" && t.content)
+      .map(t => ({ role: t.role, content: t.content, smile: t.smile === true }));
+    if (s && ["quick", "default", "complex"].includes(s.tier)) tier = s.tier;
+  } catch (_) {}
+}
+function save() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify({ turns: turns.slice(-MAX_TURNS), tier })); } catch (_) {}
+}
+
+function esc(s) { return s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+function inline(s) {
+  return s.replace(/`([^`]+)`/g, "<code>$1</code>")
+          .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+}
+function md(src) {
+  const out = [];
+  const parts = esc(src).split(/```[^\n]*\n?/);
+  parts.forEach((part, i) => {
+    if (i % 2 === 1) { out.push("<pre><code>" + part.replace(/\n$/, "") + "</code></pre>"); return; }
+    let list = null, para = [];
+    const flushPara = () => { if (para.length) { out.push("<p>" + inline(para.join("<br>")) + "</p>"); para = []; } };
+    const flushList = () => { if (list) { out.push(`<${list.tag}>` + list.items.map(x => "<li>" + inline(x) + "</li>").join("") + `</${list.tag}>`); list = null; } };
+    for (const raw of part.split("\n")) {
+      const line = raw.trimEnd();
+      let m;
+      if (!line.trim()) { flushPara(); flushList(); continue; }
+      if ((m = line.match(/^#{1,6}\s+(.*)$/))) { flushPara(); flushList(); out.push("<h4>" + inline(m[1]) + "</h4>"); continue; }
+      if ((m = line.match(/^\s*[-*•]\s+(.*)$/))) { flushPara(); if (!list || list.tag !== "ul") { flushList(); list = { tag: "ul", items: [] }; } list.items.push(m[1]); continue; }
+      if ((m = line.match(/^\s*\d+[.)]\s+(.*)$/))) { flushPara(); if (!list || list.tag !== "ol") { flushList(); list = { tag: "ol", items: [] }; } list.items.push(m[1]); continue; }
+      if (list && /^\s{2,}\S/.test(line)) { list.items[list.items.length - 1] += " " + line.trim(); continue; }
+      flushList(); para.push(line);
+    }
+    flushPara(); flushList();
+  });
+  return out.join("");
+}
+
+function scrollDown() { log.scrollTop = log.scrollHeight; }
+
+// Split the hidden expression marker off Claude's text. While streaming, also hide a marker that is only half written.
+function splitSmile(raw, streaming) {
+  const smile = raw.includes(SMILE);
+  let text = raw.split(SMILE).join("");
+  if (streaming) {
+    for (let k = SMILE.length - 1; k > 0; k--) {
+      if (text.endsWith(SMILE.slice(0, k))) { text = text.slice(0, -k); break; }
+    }
+  }
+  return { text: text.trimEnd(), smile };
+}
+
+const FACE = { calm: "nanase-face.webp", smile: "nanase_smile-face.webp" };
+const hdrAvatar = document.getElementById("hdr-avatar");
+function setMood(smile) { hdrAvatar.src = smile ? FACE.smile : FACE.calm; }
+
+function addTurn(role, text, imgUrl, smile) {
+  intro.hidden = true;
+  const el = document.createElement("div");
+  el.className = "turn " + (role === "user" ? "user" : "bot");
+  const who = document.createElement("span");
+  who.className = "who";
+  who.textContent = role === "user" ? "나" : "나나세";
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
+  if (imgUrl) { const im = document.createElement("img"); im.className = "attached"; im.src = imgUrl; im.alt = "첨부한 카드"; bubble.appendChild(im); }
+  let avatar = null;
+  if (role === "user") {
+    bubble.appendChild(document.createTextNode(text));
+    el.append(who, bubble);
+  } else {
+    bubble.innerHTML = md(text);
+    avatar = document.createElement("img");
+    avatar.className = "avatar";
+    avatar.alt = "";
+    avatar.src = smile ? FACE.smile : FACE.calm;
+    const col = document.createElement("div");
+    col.className = "col";
+    col.append(who, bubble);
+    el.append(avatar, col);
+  }
+  thread.appendChild(el);
+  scrollDown();
+  return { el: avatar ? el.querySelector(".col") : el, bubble, avatar };
+}
+
+function renderAll() {
+  thread.querySelectorAll(".turn").forEach(n => n.remove());
+  intro.hidden = turns.length > 0;
+  for (const t of turns) addTurn(t.role, t.content.replace(/^\[카드 사진 첨부\]\n?/, "📎 카드 사진\n"), null, t.smile);
+  const last = [...turns].reverse().find(t => t.role === "assistant");
+  setMood(!!last?.smile);
+}
+
+function setBusy(b) {
+  busy = b;
+  send.textContent = b ? "멈춤" : "전송";
+  send.classList.toggle("stop", b);
+  input.disabled = b;
+}
+
+function setTier(t) {
+  tier = t;
+  document.querySelectorAll(".seg button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.tier === t)));
+  save();
+}
+
+const ERRORS = {
+  not_granted: "Claude 사용이 허용되지 않았습니다. 페이지를 새로 열어 허용하면 대화할 수 있습니다.",
+  sampling_disabled: "이 계정에서는 Claude를 사용할 수 없습니다.",
+  rate_limited: "요청이 많거나 사용 한도에 도달했습니다. 잠시 뒤 다시 보내 주세요.",
+  session_expired: "로그인이 만료되었습니다. 다시 로그인한 뒤 보내 주세요.",
+  refused: "이 질문에는 답할 수 없습니다. 표현을 바꿔 다시 물어봐 주세요.",
+  prompt_too_large: "대화가 너무 길어졌습니다. '새 대화'로 다시 시작해 주세요.",
+  image_rejected: "이미지를 읽지 못했습니다. JPG나 PNG 사진으로 다시 첨부해 주세요.",
+  images_unavailable: "이 화면에서는 이미지를 보낼 수 없습니다. 카드 텍스트를 직접 붙여 넣어 주세요.",
+  empty_completion: "답변이 비어 있습니다. 질문을 조금 바꿔 다시 보내 주세요.",
+};
+const HIDE = new Set(["not_granted", "sampling_disabled", "not_declared", "capability_disabled", "capability_removed"]);
+
+async function ask(text) {
+  if (!sample || busy || !text.trim()) return;
+  const image = pendingImage;
+  clearAttach();
+  const content = (image ? "[카드 사진 첨부]\n" : "") + text.trim();
+  turns.push({ role: "user", content });
+  addTurn("user", text.trim(), image ? URL.createObjectURL(image) : null);
+  const { el, bubble, avatar } = addTurn("assistant", "");
+  setMood(false);
+  bubble.classList.add("thinking");
+  bubble.textContent = tier === "complex" ? "판정을 정리하는 중…" : "생각하는 중…";
+  setBusy(true);
+  ctl = new AbortController();
+  const history = turns.slice(-MAX_TURNS).map(t => ({ role: t.role, content: t.content }));
+  while (history.length && history[0].role !== "user") history.shift();
+  const opts = {
+    cache: false,
+    signal: ctl.signal,
+    modelTier: tier,
+    onText: ({ text }) => {
+      const s = splitSmile(text, true);
+      bubble.classList.remove("thinking");
+      bubble.innerHTML = md(s.text);
+      scrollDown();
+    },
+  };
+  if (image) opts.images = image;
+  try {
+    const res = await sample([{ role: "user", content: RULES }, ...history], opts);
+    const s = splitSmile(res.text, false);
+    bubble.innerHTML = md(s.text);
+    avatar.src = s.smile ? FACE.smile : FACE.calm;
+    setMood(s.smile);
+    turns.push({ role: "assistant", content: s.text || res.text, smile: s.smile });
+    if (res.truncated) addNote(el, "답변이 길어 중간에 끊겼습니다. 나눠서 물어봐 주세요.");
+  } catch (e) {
+    const code = e && e.code;
+    const partial = e?.text ? splitSmile(e.text, true).text : "";
+    if (code === "refused" || !partial) { bubble.classList.remove("thinking"); bubble.textContent = code === "cancelled" ? "(멈춤)" : ""; }
+    else bubble.innerHTML = md(partial);
+    if (partial && code !== "refused") turns.push({ role: "assistant", content: partial, smile: false });
+    if (code !== "cancelled") addNote(el, ERRORS[code] || "연결이 끊겼습니다. 다시 보내 주세요.");
+    if (code === "images_unavailable") attachBtn.hidden = true;
+    if (HIDE.has(code)) { input.placeholder = "Claude에 연결할 수 없습니다"; send.disabled = true; }
+    if (!bubble.textContent.trim()) bubble.remove();
+  } finally {
+    ctl = null;
+    setBusy(false);
+    save();
+    input.focus();
+    scrollDown();
+  }
+}
+
+function addNote(el, msg) { const n = document.createElement("span"); n.className = "note"; n.textContent = msg; el.appendChild(n); }
+
+function clearAttach() {
+  pendingImage = null; fileInput.value = ""; attachRow.hidden = true;
+  const p = document.getElementById("attach-preview"); if (p.src) { URL.revokeObjectURL(p.src); p.removeAttribute("src"); }
+}
+
+form.addEventListener("submit", e => {
+  e.preventDefault();
+  if (busy) { ctl?.abort(); return; }
+  const text = input.value || (pendingImage ? "이 카드의 효과를 설명해 줘" : "");
+  if (!text.trim()) return;
+  input.value = ""; autoGrow();
+  ask(text);
+});
+input.addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); form.requestSubmit(); }
+});
+function autoGrow() { input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight, 160) + "px"; }
+input.addEventListener("input", autoGrow);
+
+document.querySelectorAll(".chip").forEach(c => c.addEventListener("click", () => ask(c.textContent.replace(c.querySelector(".tag").textContent, "").trim())));
+document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => setTier(b.dataset.tier)));
+document.getElementById("reset").addEventListener("click", () => { ctl?.abort(); turns = []; save(); renderAll(); clearAttach(); input.focus(); });
+
+attachBtn.addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", () => {
+  const f = fileInput.files && fileInput.files[0];
+  if (!f) return;
+  pendingImage = f;
+  document.getElementById("attach-preview").src = URL.createObjectURL(f);
+  document.getElementById("attach-name").textContent = f.name;
+  attachRow.hidden = false;
+  input.focus();
+});
+document.getElementById("attach-clear").addEventListener("click", clearAttach);
+
+load();
+setTier(tier);
+renderAll();
+
+(async () => {
+  try { sample = window.claude ? await window.claude.use("sample") : null; } catch (_) { sample = null; }
+  if (!sample) {
+    document.getElementById("unavailable").hidden = false;
+    intro.hidden = false;
+    send.disabled = true;
+    input.placeholder = "Claude에 연결할 수 없습니다";
+    return;
+  }
+  try {
+    const lim = await sample.limits();
+    attachBtn.hidden = !lim?.images;
+    if (lim?.images) fileInput.accept = lim.images.mediaTypes.join(",");
+    if (lim?.modelTiers) {
+      document.querySelectorAll(".seg button").forEach(b => { if (!lim.modelTiers.includes(b.dataset.tier)) b.hidden = true; });
+      if (!lim.modelTiers.includes(tier)) setTier("default");
+    }
+  } catch (_) {}
+})();
+</script>
