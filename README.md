@@ -6,6 +6,8 @@ Claude API를 이용한 유희왕 OCG/TCG 전문 상담 챗봇입니다. 룰 판
 - 프런트엔드: 단일 HTML 페이지 (답변이 실시간 스트리밍으로 표시됨)
 - 모델: `claude-opus-5-5` (환경 변수로 변경 가능)
 
+> API 키 없이 쓰고 싶다면 claude.ai에 게시한 [듀얼 상담소](https://claude.ai/artifact/EmLAy2GsK6pDTAfCePinbD)를 이용하세요. 원본은 `duel-desk/`에 있습니다.
+
 ## 실행 방법
 
 1. 의존성 설치
@@ -80,6 +82,8 @@ app/
   prompts.py   # 유희왕 챗봇 시스템 프롬프트 (챗봇 성격·답변 규칙은 여기서 수정)
 static/
   index.html   # 채팅 화면
+duel-desk/      # claude.ai에 게시한 '듀얼 상담소' 페이지 원본 (API 키 불필요, duel-desk/README.md 참고)
+images/         # 챗봇 캐릭터 나나세 원본 이미지
 Dockerfile     # 컨테이너 이미지 (모든 배포 방법 공통)
 render.yaml    # Render 배포 설정
 railway.json   # Railway 배포 설정
