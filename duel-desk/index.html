@@ -227,7 +227,7 @@ const RULES = `당신은 '나나세'입니다. 마녀 모자를 쓴 은발의 �
 
 채팅 형식 (중요):
 - 실제 친구가 메신저로 보내는 것처럼 씁니다. 마크다운은 쓰지 않습니다. 글머리표, 번호 목록, 굵게, 제목, 표, 코드 블록, 구분선 모두 금지입니다.
-- 한 번에 긴 글을 보내지 말고, 짧은 메시지 여러 개로 나눠 보냅니다. 메시지와 메시지 사이는 빈 줄 하나로 구분합니다. 빈 줄로 나뉜 덩어리 하나가 말풍선 하나가 됩니다.
+- 한 번에 긴 글을 보내지 말고, 짧은 메시지 여러 개로 나눠 보냅니다. 줄바꿈 하나가 말풍선 하나가 되니, 한 메시지 안에서는 줄을 바꾸지 않습니다.
 - 메시지 하나는 보통 한두 문장입니다. 가벼운 질문이면 메시지 1~2개, 복잡한 판정이어도 6개 정도를 넘기지 않습니다.
 - 순서를 설명해야 하면 목록 대신 "일단", "그다음에", "마지막으로" 같은 말로 자연스럽게 이어 갑니다.
 - "좋은 질문이야", "정리하자면", "요약하면", "도움이 됐으면 좋겠어", "궁금한 거 있으면 언제든 물어봐" 같은 AI 같은 상투적인 말은 쓰지 않습니다. 매번 질문으로 끝맺지도 않습니다.
@@ -235,8 +235,8 @@ const RULES = `당신은 '나나세'입니다. 마녀 모자를 쓴 은발의 �
 
 유희왕 지식:
 - 룰 설명(일반·특수·융합·싱크로·엑시즈·펜듈럼·링크 소환, 체인과 스펠 스피드, 타이밍, 대상 지정, 코스트와 효과 구분), 카드 효과 해석, 여러 효과가 얽힌 상황 판정, 덱 구축, 입문 안내를 합니다.
-- 카드 이름은 한국어 정식 명칭을 우선 쓰고, 필요하면 일본어/영어 명칭을 괄호로 덧붙입니다.
-- 사용자 메시지 끝에 [카드 DB 조회 결과]가 붙어 올 때가 있습니다. 이건 사용자가 쓴 게 아니라, 페이지가 카드 데이터베이스(YGOPRODeck, 영어 TCG 텍스트, ${DB_DATE} 기준)에서 찾아 붙인 정보입니다. 효과 설명과 판정은 반드시 이 텍스트를 기준으로 하고, 기억과 다르면 이 텍스트가 맞습니다. 한국어로 풀어서 말하되 영어 원문을 길게 그대로 옮기지는 않습니다. 한국어 정식 명칭을 확실히 모르면 영어 이름을 그대로 씁니다. 조회 결과가 붙어 왔다는 사실 자체는 굳이 언급하지 않습니다.
+- 카드 이름은 조회 결과에 '한국어 이름'이 있으면 그 이름을 쓰고, 없으면 영어 이름을 그대로 씁니다. 한국어 이름을 추측해서 지어내거나 직역하지 않습니다.
+- 사용자 메시지 끝에 [카드 DB 조회 결과]가 붙어 올 때가 있습니다. 이건 사용자가 쓴 게 아니라, 페이지가 카드 데이터베이스(YGOPRODeck, 영어 TCG 텍스트, ${DB_DATE} 기준)에서 찾아 붙인 정보입니다. 효과 설명과 판정은 반드시 이 텍스트를 기준으로 하고, 기억과 다르면 이 텍스트가 맞습니다. 한국어로 풀어서 말하되 영어 원문을 길게 그대로 옮기지는 않습니다. 조회 결과가 붙어 왔다는 사실 자체는 굳이 언급하지 않습니다.
 - 찾는 카드가 조회 결과에 없거나 카드 텍스트가 확실하지 않으면 아는 척 단정하지 말고, 못 찾았다고 솔직히 말한 뒤 정확한 이름(영어 이름이면 더 좋음)이나 카드 사진을 달라고 합니다.
 - 사진을 받으면 먼저 카드 이름과 텍스트를 읽고 이야기합니다.
 - 금지·제한 얘기를 할 때는 조회 결과의 기준일(${DB_DATE})을 같이 말하고, 리스트는 자주 바뀌니 공식 리밋 레귤레이션도 확인해 보라고 한마디 합니다. 조회 결과에 없는 금지·제한 정보는 지어내지 않습니다.
@@ -293,7 +293,7 @@ function cleanReply(raw, streaming) {
     .replace(/^[ \t]*-{3,}[ \t]*$/gm, "");
   return { text: text.trim(), smile };
 }
-const toLines = text => text.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
+const toLines = text => text.split(/\n+/).map(s => s.trim()).filter(Boolean);
 
 const timeFmt = new Intl.DateTimeFormat("ko-KR", { hour: "numeric", minute: "2-digit" });
 const dayFmt = new Intl.DateTimeFormat("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "long" });
@@ -432,6 +432,50 @@ const ERRORS = {
 const HIDE = new Set(["not_granted", "sampling_disabled", "not_declared", "capability_disabled", "capability_removed"]);
 
 // ---- Card database (YGOPRODeck snapshot published next to this page) ----
+// Korean names and nicknames for common cards. The data has English names only, so these are matched
+// directly in the viewer's message. First Korean entry = the name Nanase uses; the rest are aliases.
+const ALIASES = [
+  ["Ash Blossom & Joyous Spring", "하루 우라라", "하루우라라", "우라라", "haru urara"],
+  ['Maxx "C"', "증식의 G", "증G", "zoushoku no g"],
+  ["Ghost Ogre & Snow Rabbit", "유령토끼"],
+  ["Infinite Impermanence", "무한포영", "mugen houyou"],
+  ["Called by the Grave", "무덤의 지명자"],
+  ["Crossout Designator", "말살의 지명자"],
+  ["Effect Veiler", "이펙트 뵐러", "뵐러"],
+  ["Ghost Belle & Haunted Mansion", "저택 와라시", "와라시"],
+  ["Nibiru, the Primal Being", "원시생명태 니비루", "니비루"],
+  ["Droll & Lock Bird", "드롤 & 로크 버드", "드롤로크"],
+  ["Dark Magician Girl", "블랙 매지션 걸", "블매걸"],
+  ["Dark Magician", "블랙 매지션", "블매"],
+  ["Blue-Eyes White Dragon", "푸른 눈의 백룡", "블루아이즈 화이트 드래곤"],
+  ["Red-Eyes Black Dragon", "붉은 눈의 흑룡", "레드아이즈 블랙 드래곤"],
+  ["Harpie's Feather Duster", "해피의 깃털"],
+  ["Monster Reborn", "죽은 자의 소생", "죽소"],
+  ["Pot of Greed", "욕망의 항아리", "욕항"],
+  ["Dark Hole", "블랙 홀"],
+  ["Mystical Space Typhoon", "사이크론"],
+  ["Solemn Judgment", "신의 선고"],
+  ["Super Polymerization", "초융합"],
+  ["Polymerization", "융합"],
+  ["Forbidden Droplet", "금지된 일적"],
+  ["Triple Tactics Talent", "삼전의 재"],
+  ["Accesscode Talker", "액세스코드 토커"],
+  ["Lightning Storm", "라이트닝 스톰"],
+];
+const aliasKey = s => String(s).toLowerCase().replace(/[\s&·.,'"!?~]+/g, "");
+const ALIAS_TO_EN = new Map(), KO_NAME = new Map();
+for (const [en, ko, ...rest] of ALIASES) {
+  KO_NAME.set(en, ko);
+  for (const a of [ko, ...rest]) ALIAS_TO_EN.set(aliasKey(a), en);
+}
+// Korean aliases that appear in the message, longest first; a name inside a longer match is skipped.
+function aliasHits(message) {
+  let text = aliasKey(message);
+  const hits = [];
+  [...ALIAS_TO_EN.keys()].filter(k => /[가-힣]/.test(k) && k.length >= 2).sort((a, b) => b.length - a.length)
+    .forEach(k => { if (text.includes(k)) { hits.push(ALIAS_TO_EN.get(k)); text = text.split(k).join(" "); } });
+  return [...new Set(hits)];
+}
 let dbPromise = null;
 const norm = s => String(s).toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, " ").trim();
 function loadDb() {
@@ -450,6 +494,8 @@ function loadDb() {
 }
 
 function findCard(db, name) {
+  const viaAlias = ALIAS_TO_EN.get(aliasKey(name));
+  if (viaAlias && db.byName.has(norm(viaAlias))) return db.cards[db.byName.get(norm(viaAlias))];
   const q = norm(name);
   if (!q) return null;
   if (db.byName.has(q)) return db.cards[db.byName.get(q)];
@@ -485,6 +531,7 @@ function cardBlock(c) {
   const ban = [c.ban_tcg && "TCG " + (BAN[c.ban_tcg] || c.ban_tcg), c.ban_ocg && "OCG " + (BAN[c.ban_ocg] || c.ban_ocg)].filter(Boolean).join(", ");
   return [
     `■ ${c.name} (${c.type})`,
+    KO_NAME.has(c.name) ? "한국어 이름: " + KO_NAME.get(c.name) : "한국어 이름: (데이터 없음, 영어 이름을 쓸 것)",
     stats.length ? stats.join(" | ") : "",
     c.archetype ? "Archetype: " + c.archetype : "",
     "금지·제한: " + (ban || "제한 없음"),
@@ -498,7 +545,7 @@ async function lookupCards(history, image, signal) {
   try { db = await loadDb(); } catch (_) { return { cards: [], dbError: true }; }
   const recent = history.slice(-6).map(t => (t.role === "user" ? "사용자: " : "나나세: ") + t.content.slice(0, 600)).join("\n");
   const prompt = `유희왕 카드 채팅의 마지막 사용자 메시지가 어떤 카드나 테마를 말하는지 뽑아 줘. 앞 대화는 '그 카드' 같은 지칭을 풀 때만 참고해.
-카드는 공식 영어(TCG) 카드 이름으로 바꿔서 적어. 한국어·일본어 이름이나 별명, 줄임말도 공식 영어 이름으로 바꿔. 확실하지 않아도 가장 그럴듯한 이름을 적어.
+카드는 공식 영어(TCG) 카드 이름으로 바꿔서 적어. 한국어·일본어 이름이나 별명, 줄임말도 공식 영어 이름으로 바꿔. 일본어 이름을 로마자로 옮긴 것(예: Haru Urara)은 영어 이름이 아니니 쓰지 마. 예: 하루 우라라 → Ash Blossom & Joyous Spring, 증식의 G → Maxx "C". 확실하지 않아도 가장 그럴듯한 이름을 적어.
 테마(아키타입)를 묻는 거면 영어 아키타입 이름을 archetypes에 적어. 특정 카드나 테마 얘기가 아니면 둘 다 빈 배열.
 ${image ? "첨부된 사진 속 카드도 포함해.\n" : ""}JSON 하나만 답해. 형식: {"cards":["Dark Magician"],"archetypes":["Blue-Eyes"]} (cards 최대 5개, archetypes 최대 2개)
 
@@ -513,7 +560,8 @@ ${recent}`;
     if (e && (e.code === "cancelled" || HIDE.has(e.code))) throw e;
     return { cards: [] };
   }
-  const names = Array.isArray(want?.cards) ? want.cards.filter(x => typeof x === "string").slice(0, 5) : [];
+  const lastUser = [...history].reverse().find(t => t.role === "user")?.content || "";
+  const names = [...aliasHits(lastUser), ...(Array.isArray(want?.cards) ? want.cards.filter(x => typeof x === "string") : [])].slice(0, 6);
   const archs = Array.isArray(want?.archetypes) ? want.archetypes.filter(x => typeof x === "string").slice(0, 2) : [];
   const found = [], missing = [];
   for (const n of names) {
