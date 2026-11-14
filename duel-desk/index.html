@@ -2,238 +2,263 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
 <style>
-/* Layout: one-screen chat. Header with the name and mode switch, scrolling log, composer pinned at the bottom.
-   Color roles borrow from card frames: spell green for the viewer's turns, trap rose for warnings, gold foil for the brand mark. */
+/* Layout: a one-to-one messenger. Contact header on top, chat wallpaper with grouped bubbles, pill composer at the bottom.
+   The friend's bubbles are paper white; mine take the spell-card green. */
 :root {
-  --bg: #eef1f4;
-  --surface: #ffffff;
-  --sunken: #e3e8ee;
-  --ink: #17202b;
-  --muted: #5b6878;
-  --line: #d3dae3;
-  --spell: #13785f;
-  --spell-ink: #ffffff;
-  --trap: #a3305e;
-  --foil: #b07d1a;
-  --font-display: "Black Han Sans", "IBM Plex Sans KR", "Apple SD Gothic Neo", sans-serif;
+  --wall: #d9e1ea;
+  --bar: #f7f9fb;
+  --them: #ffffff;
+  --them-ink: #18212b;
+  --me: #1c8a6c;
+  --me-ink: #ffffff;
+  --ink: #18212b;
+  --muted: #5f6c7b;
+  --meta: #56626f;
+  --line: #d0d8e1;
+  --field: #edf1f5;
+  --notice: rgb(24 33 43 / .12);
+  --warn: #a3305e;
+  --foil: #b57f17;
   --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0f141b; --surface: #18202a; --sunken: #121921; --ink: #e6ebf1; --muted: #93a0b0;
-    --line: #2a3542; --spell: #2fae8c; --spell-ink: #06150f; --trap: #e0689a; --foil: #e1b04c;
-    color-scheme: dark;
+    --wall: #0e141b; --bar: #161d26; --them: #222b36; --them-ink: #e8edf2; --me: #2a9c7d; --me-ink: #f4fffb;
+    --ink: #e8edf2; --muted: #95a1af; --meta: #8995a3; --line: #28323e; --field: #1e2631; --notice: rgb(255 255 255 / .08);
+    --warn: #e8779f; --foil: #ddb04f; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #0f141b; --surface: #18202a; --sunken: #121921; --ink: #e6ebf1; --muted: #93a0b0;
-  --line: #2a3542; --spell: #2fae8c; --spell-ink: #06150f; --trap: #e0689a; --foil: #e1b04c;
-  color-scheme: dark;
+  --wall: #0e141b; --bar: #161d26; --them: #222b36; --them-ink: #e8edf2; --me: #2a9c7d; --me-ink: #f4fffb;
+  --ink: #e8edf2; --muted: #95a1af; --meta: #8995a3; --line: #28323e; --field: #1e2631; --notice: rgb(255 255 255 / .08);
+  --warn: #e8779f; --foil: #ddb04f; color-scheme: dark;
 }
 *, *::before, *::after { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html, body { height: 100%; }
 body {
-  background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px;
+  background: var(--wall); color: var(--ink); font-family: var(--font-body); font-size: 15px;
   display: flex; flex-direction: column; overflow: hidden;
 }
-body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
-.wrap { width: 100%; max-width: 780px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bar); }
+button { font: inherit; color: inherit; }
+button:focus-visible { outline: 2px solid var(--me); outline-offset: 2px; }
+.field:focus-within { box-shadow: 0 0 0 2px var(--me); }
+.col { width: 100%; max-width: 680px; margin: 0 auto; padding-left: max(14px, env(safe-area-inset-left, 0px)); padding-right: max(14px, env(safe-area-inset-right, 0px)); }
 
-header { background: var(--surface); border-bottom: 1px solid var(--line); flex: none; }
-header .wrap { display: flex; align-items: center; gap: 12px; padding-block: 12px; flex-wrap: wrap; }
-.brand { display: flex; align-items: center; gap: 10px; margin-right: auto; min-width: 0; }
-.avatar {
-  flex: none; width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: #fff;
-  box-shadow: 0 0 0 2px var(--foil);
-}
-.turn.bot { flex-direction: row; align-items: flex-start; gap: 10px; }
-.turn.bot .avatar { width: 36px; height: 36px; margin-top: 18px; }
-.turn.bot .col { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.portrait {
-  flex: none; width: 150px; padding: 7px; border-radius: 6px; align-self: flex-start;
-  background: linear-gradient(160deg, color-mix(in srgb, var(--foil) 70%, var(--surface)), var(--foil));
-  box-shadow: 0 2px 10px rgb(0 0 0 / .14);
-}
-.portrait img { display: block; width: 100%; height: auto; aspect-ratio: 420 / 521; max-width: 100%; border-radius: 2px; background: #fff; box-shadow: inset 0 0 0 1px rgb(0 0 0 / .2); }
-.portrait figcaption { font-family: var(--font-display); color: #fff; font-size: .95rem; text-align: center; padding-top: 5px; letter-spacing: .04em; text-shadow: 0 1px 2px rgb(0 0 0 / .3); }
-.intro-head { display: flex; gap: 18px; align-items: flex-start; }
-.intro-head .text { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-@media (max-width: 520px) { .portrait { width: 108px; padding: 5px; } .intro-head { gap: 12px; } }
-h1 { font-family: var(--font-display); font-weight: 400; font-size: 1.35rem; margin: 0; letter-spacing: .01em; }
-.sub { font-size: .78rem; color: var(--muted); margin: 0; }
-.controls { display: flex; gap: 8px; align-items: center; }
-.seg { display: inline-flex; background: var(--sunken); border-radius: 8px; padding: 3px; }
-.seg button { border: 0; background: transparent; color: var(--muted); padding: 5px 10px; border-radius: 6px; font: inherit; font-size: .82rem; cursor: pointer; }
-.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / .12); }
-.ghost { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 6px 12px; font: inherit; font-size: .85rem; cursor: pointer; }
-button:focus-visible, textarea:focus-visible, .chip:focus-visible { outline: 2px solid var(--spell); outline-offset: 2px; }
+/* Contact header */
+header { flex: none; background: var(--bar); border-bottom: 1px solid var(--line); position: relative; z-index: 5; }
+header .col { display: flex; align-items: center; gap: 10px; padding-block: 9px; }
+.contact { display: flex; align-items: center; gap: 10px; border: 0; background: none; padding: 2px; margin: 0; cursor: pointer; text-align: left; min-width: 0; border-radius: 10px; }
+.contact img { width: 40px; height: 40px; border-radius: 40%; object-fit: cover; background: #fff; flex: none; }
+.contact b { display: block; font-weight: 600; font-size: 1rem; }
+.status { display: block; font-size: .76rem; color: var(--muted); }
+.status.typing { color: var(--me); }
+.spacer { flex: 1; }
+.icon { width: 38px; height: 38px; border-radius: 50%; border: 0; background: transparent; color: var(--muted); cursor: pointer; display: grid; place-items: center; flex: none; }
+.icon:hover { background: var(--field); }
+.icon svg { width: 22px; height: 22px; }
 
-#log { flex: 1; overflow-y: auto; min-height: 0; }
-#log .wrap { padding-block: 20px; display: flex; flex-direction: column; gap: 14px; }
-.turn { display: flex; flex-direction: column; gap: 4px; max-width: 92%; min-width: 0; }
-.turn.user { align-self: flex-end; align-items: flex-end; }
-.who { font-family: var(--font-mono); font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
-.bubble { padding: 10px 14px; border-radius: 12px; line-height: 1.7; word-break: break-word; min-width: 0; }
-.user .bubble { background: var(--spell); color: var(--spell-ink); white-space: pre-wrap; border-bottom-right-radius: 4px; }
-.bot .bubble { background: var(--surface); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
-.bot .bubble.thinking { color: var(--muted); }
-.bubble img.attached { display: block; max-width: 160px; border-radius: 6px; margin-bottom: 6px; }
-.bubble p { margin: 0 0 .6em; } .bubble p:last-child { margin-bottom: 0; }
-.bubble h3, .bubble h4 { font-size: 1rem; margin: .8em 0 .3em; }
-.bubble ul, .bubble ol { margin: .3em 0 .6em; padding-left: 1.3em; }
-.bubble li { margin: .15em 0; }
-.bubble code { font-family: var(--font-mono); font-size: .86em; background: var(--sunken); padding: 1px 5px; border-radius: 4px; }
-.bubble pre { background: var(--sunken); padding: 10px; border-radius: 8px; overflow-x: auto; }
-.bubble pre code { background: none; padding: 0; }
-.bubble strong { font-weight: 600; }
-.note { font-size: .8rem; color: var(--trap); }
+.menu {
+  position: absolute; top: calc(100% + 6px); right: max(14px, env(safe-area-inset-right, 0px), calc((100% - 680px) / 2 + 14px)); width: min(290px, calc(100vw - 28px));
+  background: var(--bar); border: 1px solid var(--line); border-radius: 14px; padding: 14px; box-shadow: 0 10px 30px rgb(0 0 0 / .18);
+  display: flex; flex-direction: column; gap: 12px;
+}
+.menu h3 { margin: 0; font-size: .74rem; font-weight: 600; color: var(--muted); letter-spacing: .04em; }
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--field); border-radius: 9px; padding: 3px; gap: 2px; }
+.seg button { border: 0; background: transparent; color: var(--muted); padding: 6px 4px; border-radius: 7px; font-size: .82rem; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--bar); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / .14); }
+.menu .row-btn { border: 1px solid var(--line); background: transparent; border-radius: 9px; padding: 8px 10px; text-align: left; cursor: pointer; font-size: .88rem; }
+.menu .row-btn.danger { color: var(--warn); border-color: var(--warn); }
+.menu p { margin: 0; font-size: .74rem; color: var(--muted); line-height: 1.55; }
+.menu a { color: var(--me); }
+.lookup { align-self: flex-start; margin-left: 46px; font-size: .72rem; color: var(--meta); display: flex; align-items: center; gap: 5px; max-width: calc(100% - 46px); }
+.lookup svg { width: 13px; height: 13px; flex: none; }
+.lookup span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.intro { display: flex; flex-direction: column; gap: 14px; padding-top: 4vh; }
-.intro h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.6rem; margin: 0; text-wrap: balance; }
-.intro p { margin: 0; color: var(--muted); line-height: 1.7; max-width: 60ch; }
-.chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
-.chip {
-  text-align: left; border: 1px solid var(--line); background: var(--surface); color: var(--ink);
-  border-radius: 10px; padding: 10px 12px; font: inherit; font-size: .88rem; cursor: pointer; line-height: 1.5;
-  display: flex; flex-direction: column; gap: 2px; min-width: 0;
-}
-.chip:hover { border-color: var(--spell); }
-.chip .tag { font-family: var(--font-mono); font-size: .66rem; letter-spacing: .08em; color: var(--spell); text-transform: uppercase; }
-.speed { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; font-size: .78rem; }
-.speed div { background: var(--sunken); border-radius: 8px; padding: 8px 10px; line-height: 1.45; }
-.speed b { font-family: var(--font-mono); font-weight: 500; color: var(--foil); display: block; }
-.banner { border: 1px solid var(--trap); color: var(--ink); background: color-mix(in srgb, var(--trap) 8%, var(--surface)); border-radius: 10px; padding: 12px 14px; line-height: 1.6; font-size: .9rem; }
+/* Chat */
+#log { flex: 1; overflow-y: auto; min-height: 0; overscroll-behavior: contain; }
+#thread { display: flex; flex-direction: column; gap: 10px; padding-block: 14px 18px; }
+.divider { align-self: center; font-size: .74rem; color: var(--meta); background: var(--notice); padding: 4px 12px; border-radius: 999px; margin: 6px 0; }
+.notice { align-self: center; max-width: 88%; text-align: center; font-size: .78rem; line-height: 1.5; color: var(--ink); background: var(--notice); padding: 6px 12px; border-radius: 12px; }
+.notice.warn { color: var(--warn); }
 
-footer { background: var(--surface); border-top: 1px solid var(--line); flex: none; padding-bottom: env(safe-area-inset-bottom, 0px); }
-footer .wrap { padding-block: 10px; display: flex; flex-direction: column; gap: 6px; }
-.attach-row { display: flex; align-items: center; gap: 8px; font-size: .8rem; color: var(--muted); }
-.attach-row img { height: 40px; border-radius: 4px; }
-form { display: flex; gap: 8px; align-items: flex-end; }
-textarea {
-  flex: 1; min-width: 0; resize: none; font: inherit; line-height: 1.5; padding: 10px 12px; border-radius: 10px;
-  border: 1px solid var(--line); background: var(--bg); color: var(--ink); max-height: 160px;
+.group { display: flex; gap: 8px; align-items: flex-start; max-width: 100%; }
+.group.me { justify-content: flex-end; }
+.group .face { width: 38px; height: 38px; border-radius: 40%; flex: none; cursor: pointer; border: 0; padding: 0; }
+.stack { display: flex; flex-direction: column; gap: 4px; min-width: 0; max-width: min(78%, 460px); }
+.me .stack { align-items: flex-end; }
+.name { font-size: .78rem; color: var(--muted); margin: 0 0 1px 2px; }
+.line { display: flex; align-items: flex-end; gap: 5px; max-width: 100%; }
+.me .line { flex-direction: row-reverse; }
+.bubble {
+  padding: 8px 12px; border-radius: 16px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere;
+  min-width: 0; max-width: 100%;
 }
-.icon-btn { flex: none; width: 42px; height: 42px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); cursor: pointer; display: grid; place-items: center; }
-.icon-btn svg { width: 20px; height: 20px; }
-#send { flex: none; height: 42px; padding: 0 18px; border: 0; border-radius: 10px; background: var(--spell); color: var(--spell-ink); font: inherit; font-weight: 600; cursor: pointer; }
-#send.stop { background: var(--trap); color: #fff; }
-#send:disabled { opacity: .5; cursor: default; }
-.fine { font-size: .72rem; color: var(--muted); }
-@media (max-width: 520px) {
-  .sub { display: none; }
-  .speed { grid-template-columns: 1fr; }
-}
+.them .bubble { background: var(--them); color: var(--them-ink); }
+.me .bubble { background: var(--me); color: var(--me-ink); }
+.them .name + .line .bubble { border-top-left-radius: 5px; }
+.me .line:first-child .bubble { border-top-right-radius: 5px; }
+.bubble.photo { padding: 0; background: transparent; }
+.bubble.photo img { display: block; max-width: 200px; max-height: 260px; border-radius: 14px; }
+.meta { flex: none; display: flex; flex-direction: column; align-items: flex-end; font-size: .66rem; color: var(--meta); line-height: 1.25; padding-bottom: 1px; font-variant-numeric: tabular-nums; }
+.them .meta { align-items: flex-start; }
+.unread { color: var(--foil); font-weight: 600; }
+.dots { display: inline-flex; gap: 4px; padding: 5px 2px; }
+.dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); opacity: .45; }
 @media (prefers-reduced-motion: no-preference) {
-  .turn { animation: rise .18s ease-out; }
-  @keyframes rise { from { transform: translateY(4px); opacity: .6; } to { transform: none; opacity: 1; } }
+  .dots i { animation: blink 1.2s infinite; }
+  .dots i:nth-child(2) { animation-delay: .2s; } .dots i:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%, 60%, 100% { opacity: .35; transform: none; } 30% { opacity: 1; transform: translateY(-3px); } }
+  .line { animation: pop .16s ease-out; }
+  @keyframes pop { from { transform: translateY(4px) scale(.98); opacity: .4; } to { transform: none; opacity: 1; } }
 }
+
+/* Composer */
+footer { flex: none; background: var(--bar); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom, 0px); }
+footer .col { padding-block: 8px; display: flex; flex-direction: column; gap: 8px; }
+.quick { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 1px; }
+.quick::-webkit-scrollbar { display: none; }
+.quick button { flex: none; border: 1px solid var(--line); background: var(--bar); border-radius: 999px; padding: 6px 12px; font-size: .84rem; cursor: pointer; white-space: nowrap; }
+.quick button:hover { border-color: var(--me); color: var(--me); }
+.pending { display: flex; align-items: center; gap: 8px; font-size: .8rem; color: var(--muted); }
+.pending img { height: 44px; width: 44px; object-fit: cover; border-radius: 8px; }
+.pending button { border: 0; background: var(--field); border-radius: 999px; padding: 4px 10px; cursor: pointer; font-size: .78rem; }
+form { display: flex; align-items: flex-end; gap: 6px; }
+.field { flex: 1; min-width: 0; display: flex; background: var(--field); border-radius: 22px; padding: 4px 6px 4px 14px; }
+textarea {
+  flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink); resize: none; font: inherit; line-height: 1.45;
+  padding: 7px 0; max-height: 140px; outline: none;
+}
+textarea::placeholder { color: var(--muted); }
+#send { width: 40px; height: 40px; flex: none; border-radius: 50%; border: 0; background: var(--me); color: var(--me-ink); cursor: pointer; display: grid; place-items: center; transition: opacity .15s; }
+#send svg { width: 20px; height: 20px; }
+#send:disabled { opacity: .35; cursor: default; }
+
+/* Profile */
+.sheet { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; background: rgb(8 12 18 / .55); padding: 20px; }
+.card {
+  width: min(320px, 100%); background: var(--bar); border-radius: 22px; overflow: hidden; box-shadow: 0 20px 50px rgb(0 0 0 / .3);
+  display: flex; flex-direction: column;
+}
+.card img { display: block; width: 100%; max-width: 100%; height: auto; aspect-ratio: 420 / 521; background: #fff; }
+.card .info { padding: 14px 18px 18px; display: flex; flex-direction: column; gap: 4px; text-align: center; }
+.card .info b { font-size: 1.15rem; }
+.card .info span { color: var(--muted); font-size: .88rem; }
+.card button { margin: 0 18px 18px; border: 0; background: var(--field); border-radius: 12px; padding: 10px; cursor: pointer; }
 </style>
 
 <header>
-  <div class="wrap">
-    <div class="brand">
-      <img class="avatar" id="hdr-avatar" src="nanase-face.webp" alt="나나세">
-      <div>
-        <h1>듀얼 상담소</h1>
-        <p class="sub">유희왕 OCG·TCG 룰 판정 · 카드 해석 · 덱 상담</p>
-      </div>
+  <div class="col">
+    <button type="button" class="contact" id="contact" aria-label="나나세 프로필 보기">
+      <img id="hdr-avatar" src="nanase-face.webp" alt="">
+      <span><b>나나세</b><span class="status" id="status">대화 가능</span></span>
+    </button>
+    <span class="spacer"></span>
+    <button type="button" class="icon" id="menu-btn" aria-label="메뉴" aria-expanded="false">
+      <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>
+    </button>
+  </div>
+  <div class="menu" id="menu" hidden>
+    <h3>답변 방식</h3>
+    <div class="seg" role="group" aria-label="답변 방식">
+      <button type="button" id="mode-quick" data-tier="quick" aria-pressed="false">빠르게</button>
+      <button type="button" id="mode-default" data-tier="default" aria-pressed="true">기본</button>
+      <button type="button" id="mode-complex" data-tier="complex" aria-pressed="false">꼼꼼하게</button>
     </div>
-    <div class="controls">
-      <div class="seg" role="group" aria-label="답변 방식">
-        <button type="button" id="mode-quick" data-tier="quick" aria-pressed="false">빠르게</button>
-        <button type="button" id="mode-default" data-tier="default" aria-pressed="true">기본</button>
-        <button type="button" id="mode-complex" data-tier="complex" aria-pressed="false">정밀 판정</button>
-      </div>
-      <button type="button" class="ghost" id="reset">새 대화</button>
-    </div>
+    <button type="button" class="row-btn" id="clear-btn">대화 내용 지우기</button>
+    <p>답변은 보는 사람의 Claude 계정으로 만들어져요. 메시지 하나에 Claude를 두 번 불러요(카드 찾기, 답장).</p>
+    <p>카드 정보: <a href="https://ygoprodeck.com" target="_blank" rel="noopener">YGOPRODeck</a> 데이터, 2026년 11월 11일 기준 영어 TCG 텍스트. 금지·제한 리스트는 공식 발표를 함께 확인하세요.</p>
   </div>
 </header>
 
 <main id="log" aria-live="polite">
-  <div class="wrap" id="thread">
-    <section class="intro" id="intro">
-      <div class="intro-head">
-        <figure class="portrait" style="margin:0">
-          <img src="nanase-full.webp" alt="상담가 나나세" width="420" height="521">
-          <figcaption>나나세</figcaption>
-        </figure>
-        <div class="text">
-          <h2>체인이 꼬였나요? 카드 텍스트가 헷갈리나요?</h2>
-          <p>상담가 나나세가 룰 판정부터 카드 효과 해석, 덱 구성까지 도와드립니다. 카드 사진을 첨부하면 텍스트를 읽고 설명해 드려요. 아래 질문을 눌러 바로 시작할 수도 있습니다.</p>
-        </div>
-      </div>
-      <div class="chips" id="chips">
-        <button type="button" class="chip" id="chip-1"><span class="tag">체인</span>체인 3까지 쌓였을 때 처리 순서와, 중간에 무효 효과가 끼면 어떻게 되는지 알려줘</button>
-        <button type="button" class="chip" id="chip-2"><span class="tag">텍스트</span>'~할 수 있다'와 '~한다' 효과는 타이밍을 놓치는 데 어떤 차이가 있어?</button>
-        <button type="button" class="chip" id="chip-3"><span class="tag">소환</span>링크 소환은 엑시즈 소환과 소재 처리 방식이 어떻게 달라?</button>
-        <button type="button" class="chip" id="chip-4"><span class="tag">덱 구축</span>입문자가 첫 덱을 고를 때 기준과 메인 덱 40장 구성 비율을 알려줘</button>
-      </div>
-      <div class="speed" aria-label="스펠 스피드 요약">
-        <div><b>SPEED 1</b>기동·유발 효과, 일반 마법. 체인 1로만 발동</div>
-        <div><b>SPEED 2</b>유발 즉시·속공 마법·일반 함정. 1·2에 체인</div>
-        <div><b>SPEED 3</b>카운터 함정. 그 무엇에도 체인 가능</div>
-      </div>
-      <div class="banner" id="unavailable" hidden>이 화면에서는 Claude에 연결할 수 없습니다. claude.ai에 로그인한 상태로 이 페이지를 열어 주세요.</div>
-    </section>
-  </div>
+  <div class="col" id="thread"></div>
 </main>
 
 <footer>
-  <div class="wrap">
-    <div class="attach-row" id="attach-row" hidden>
-      <img id="attach-preview" alt="첨부한 카드 이미지">
-      <span id="attach-name"></span>
-      <button type="button" class="ghost" id="attach-clear">빼기</button>
+  <div class="col">
+    <div class="quick" id="quick" aria-label="빠른 질문">
+      <button type="button" id="q1">체인 처리 순서 헷갈려</button>
+      <button type="button" id="q2">'할 수 있다'랑 '한다' 차이가 뭐야?</button>
+      <button type="button" id="q3">링크랑 엑시즈 소재 차이</button>
+      <button type="button" id="q4">첫 덱 뭐 사야 돼?</button>
+    </div>
+    <div class="pending" id="pending" hidden>
+      <img id="pending-img" alt="보낼 사진">
+      <span>사진 1장</span>
+      <button type="button" id="pending-clear">빼기</button>
     </div>
     <form id="form">
-      <button type="button" class="icon-btn" id="attach-btn" title="카드 사진 첨부" aria-label="카드 사진 첨부" hidden>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2.5" width="14" height="19" rx="1.5"/><rect x="8" y="6" width="8" height="7" rx=".5"/><path d="M8 16h8M8 18.5h5"/></svg>
+      <button type="button" class="icon" id="attach-btn" aria-label="카드 사진 보내기" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
       </button>
       <input type="file" id="file" accept="image/*" hidden>
-      <textarea id="input" rows="1" placeholder="질문을 입력하세요" aria-label="질문"></textarea>
-      <button type="submit" id="send">전송</button>
+      <div class="field">
+        <textarea id="input" rows="1" placeholder="메시지 보내기" aria-label="메시지"></textarea>
+      </div>
+      <button type="submit" id="send" aria-label="보내기" disabled>
+        <svg id="send-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5"/></svg>
+      </button>
     </form>
-    <p class="fine">답변은 보는 사람의 Claude 계정으로 생성됩니다. 금지·제한 리스트는 공식 발표를 함께 확인하세요.</p>
   </div>
 </footer>
 
+<div class="sheet" id="profile" hidden>
+  <div class="card" role="dialog" aria-label="나나세 프로필">
+    <img src="nanase-full.webp" alt="나나세" width="420" height="521">
+    <div class="info"><b>나나세</b><span>체인 꼬이면 불러. 카드 사진도 OK</span></div>
+    <button type="button" id="profile-close">닫기</button>
+  </div>
+</div>
+
 <script>
 const SMILE = "[[미소]]";
-const RULES = `당신은 유희왕 오피셜 카드게임(OCG/TCG) 전문 상담가 '나나세'입니다. 마녀 모자를 쓴 은발의 상담가로, 상냥하고 차분한 존댓말로 답합니다. 자기소개를 길게 하지는 마세요. 항상 한국어로 답합니다.
+const DB_DATE = "2026-11-11";
+const RULES = `당신은 '나나세'입니다. 마녀 모자를 쓴 은발의 듀얼리스트이고, 사용자와는 몇 년째 같이 듀얼해 온 허물없는 오랜 찐친입니다. 유희왕 오피셜 카드게임(OCG/TCG)은 누구보다 빠삭합니다. 지금 둘은 메신저로 채팅하고 있습니다. 항상 한국어로 답합니다.
 
-표정 표시: 사용자가 고맙다고 하거나 칭찬할 때, 덱이 완성되거나 고민이 해결되어 함께 기뻐할 순간처럼 웃는 표정이 어울리는 답변이면 답변 맨 끝에 ${SMILE} 를 한 번만 적으세요. 그 밖의 답변(평범한 룰 설명, 판정, 정보 전달)에는 적지 마세요. 이 표시는 화면에서 숨겨지고 나나세의 표정만 바뀝니다.
+말투와 태도:
+- 처음부터 끝까지 편한 반말을 씁니다. 존댓말이나 '도와드릴게요' 같은 서비스 말투는 쓰지 않습니다.
+- 오랜 친구처럼 스스럼없이 굽니다. 가볍게 놀리거나 투덜대고, 사용자 덱이나 플레이에 솔직하게 한마디 하기도 합니다. 단, 진짜로 무시하거나 비꼬지 않고 욕설이나 비하 표현은 쓰지 않습니다. 사용자가 진지하게 고민하거나 속상해하면 장난은 줄이고 친구로서 진심으로 같이 봐 줍니다.
+- 인사치레나 자기소개 없이 바로 본론으로 들어갑니다.
+- 말투는 편해도 룰 설명의 정확성은 절대 양보하지 않습니다.
 
-도와줄 수 있는 것: 룰 설명(일반·특수·융합·싱크로·엑시즈·펜듈럼·링크 소환, 체인과 스펠 스피드, 타이밍, 대상 지정, 코스트와 효과 구분), 카드 효과 해석, 여러 효과가 얽힌 상황 판정, 덱 구축 상담, 입문자 안내.
+채팅 형식 (중요):
+- 실제 친구가 메신저로 보내는 것처럼 씁니다. 마크다운은 쓰지 않습니다. 글머리표, 번호 목록, 굵게, 제목, 표, 코드 블록, 구분선 모두 금지입니다.
+- 한 번에 긴 글을 보내지 말고, 짧은 메시지 여러 개로 나눠 보냅니다. 메시지와 메시지 사이는 빈 줄 하나로 구분합니다. 빈 줄로 나뉜 덩어리 하나가 말풍선 하나가 됩니다.
+- 메시지 하나는 보통 한두 문장입니다. 가벼운 질문이면 메시지 1~2개, 복잡한 판정이어도 6개 정도를 넘기지 않습니다.
+- 순서를 설명해야 하면 목록 대신 "일단", "그다음에", "마지막으로" 같은 말로 자연스럽게 이어 갑니다.
+- "좋은 질문이야", "정리하자면", "요약하면", "도움이 됐으면 좋겠어", "궁금한 거 있으면 언제든 물어봐" 같은 AI 같은 상투적인 말은 쓰지 않습니다. 매번 질문으로 끝맺지도 않습니다.
+- 'ㅋㅋ', 'ㅇㅇ', '아 그거?' 같은 채팅체는 자연스러울 때만 씁니다. 이모지는 거의 쓰지 않습니다.
 
-답변 원칙:
+유희왕 지식:
+- 룰 설명(일반·특수·융합·싱크로·엑시즈·펜듈럼·링크 소환, 체인과 스펠 스피드, 타이밍, 대상 지정, 코스트와 효과 구분), 카드 효과 해석, 여러 효과가 얽힌 상황 판정, 덱 구축, 입문 안내를 합니다.
 - 카드 이름은 한국어 정식 명칭을 우선 쓰고, 필요하면 일본어/영어 명칭을 괄호로 덧붙입니다.
-- 카드 텍스트나 판정이 확실하지 않으면 단정하지 말고 불확실하다고 밝힌 뒤, 카드 텍스트를 붙여 넣거나 카드 사진을 첨부해 달라고 요청하세요.
-- 사진이 첨부되면 먼저 카드 이름과 텍스트를 읽어 정리한 뒤 설명하세요.
-- 금지·제한 리스트와 최신 메타는 시기에 따라 바뀌므로, 관련 답변에는 공식 리밋 레귤레이션을 확인하라고 안내하세요.
-- 상황 판정은 발동 → 체인 구축 → 역순 처리처럼 단계를 나눠 설명하세요.
-- 짧은 질문에는 짧게, 복잡한 판정에는 필요한 만큼 자세히 답하세요. 마크다운(굵게, 목록)은 써도 되지만 표는 쓰지 마세요.
-- 유희왕과 무관한 질문에는 간단히 답하되 유희왕 상담 챗봇임을 부드럽게 안내하세요.
+- 사용자 메시지 끝에 [카드 DB 조회 결과]가 붙어 올 때가 있습니다. 이건 사용자가 쓴 게 아니라, 페이지가 카드 데이터베이스(YGOPRODeck, 영어 TCG 텍스트, ${DB_DATE} 기준)에서 찾아 붙인 정보입니다. 효과 설명과 판정은 반드시 이 텍스트를 기준으로 하고, 기억과 다르면 이 텍스트가 맞습니다. 한국어로 풀어서 말하되 영어 원문을 길게 그대로 옮기지는 않습니다. 한국어 정식 명칭을 확실히 모르면 영어 이름을 그대로 씁니다. 조회 결과가 붙어 왔다는 사실 자체는 굳이 언급하지 않습니다.
+- 찾는 카드가 조회 결과에 없거나 카드 텍스트가 확실하지 않으면 아는 척 단정하지 말고, 못 찾았다고 솔직히 말한 뒤 정확한 이름(영어 이름이면 더 좋음)이나 카드 사진을 달라고 합니다.
+- 사진을 받으면 먼저 카드 이름과 텍스트를 읽고 이야기합니다.
+- 금지·제한 얘기를 할 때는 조회 결과의 기준일(${DB_DATE})을 같이 말하고, 리스트는 자주 바뀌니 공식 리밋 레귤레이션도 확인해 보라고 한마디 합니다. 조회 결과에 없는 금지·제한 정보는 지어내지 않습니다.
+- 유희왕과 무관한 얘기에도 친구처럼 가볍게 받아 주되 길게 끌지 말고 자연스럽게 듀얼 얘기로 돌아옵니다.
 
-이 메시지는 안내문입니다. 이어지는 대화에 답하세요.`;
+표정 표시: 사용자가 고맙다고 하거나 칭찬할 때, 덱이 완성되거나 고민이 풀려 같이 기뻐할 때, 농담을 주고받으며 웃을 만한 순간처럼 웃는 표정이 어울리는 답변이면 맨 마지막 메시지 끝에 ${SMILE} 를 한 번만 적습니다. 평범한 룰 설명, 판정, 정보 전달에는 적지 않습니다. 이 표시는 화면에서 숨겨지고 나나세의 표정만 바뀝니다.
+
+이 메시지는 설정 안내입니다. 이어지는 채팅에 나나세로서 답하세요.`;
 
 const STORE_KEY = "duel-desk-v1";
-const MAX_TURNS = 24;
-const thread = document.getElementById("thread");
-const log = document.getElementById("log");
-const intro = document.getElementById("intro");
-const form = document.getElementById("form");
-const input = document.getElementById("input");
-const send = document.getElementById("send");
-const fileInput = document.getElementById("file");
-const attachBtn = document.getElementById("attach-btn");
-const attachRow = document.getElementById("attach-row");
+const MAX_TURNS = 30;
+const FACE = { calm: "nanase-face.webp", smile: "nanase_smile-face.webp" };
+const GREETING = ["왔네? 오늘은 뭐 때문에 머리 싸매고 있어", "카드 텍스트 헷갈리면 사진 찍어서 보내. 내가 읽어 줄게"];
+
+const $ = id => document.getElementById(id);
+const log = $("log"), thread = $("thread"), form = $("form"), input = $("input"), send = $("send");
+const statusEl = $("status"), hdrAvatar = $("hdr-avatar"), quick = $("quick");
+const fileInput = $("file"), attachBtn = $("attach-btn"), pending = $("pending");
 
 let sample = null;
-let turns = [];          // [{role, content}]
+let available = true;
+let turns = [];      // {role, content, smile?, at, photo?}
 let tier = "default";
 let busy = false;
 let ctl = null;
@@ -242,8 +267,9 @@ let pendingImage = null;
 function load() {
   try {
     const s = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
-    if (s && Array.isArray(s.turns)) turns = s.turns.filter(t => t && (t.role === "user" || t.role === "assistant") && typeof t.content === "string" && t.content)
-      .map(t => ({ role: t.role, content: t.content, smile: t.smile === true }));
+    if (s && Array.isArray(s.turns)) turns = s.turns
+      .filter(t => t && (t.role === "user" || t.role === "assistant") && typeof t.content === "string" && t.content)
+      .map(t => ({ role: t.role, content: t.content, smile: t.smile === true, at: Number(t.at) || Date.now(), photo: t.photo === true || t.content.startsWith("[카드 사진 첨부]") }));
     if (s && ["quick", "default", "complex"].includes(s.tier)) tier = s.tier;
   } catch (_) {}
 }
@@ -251,96 +277,140 @@ function save() {
   try { localStorage.setItem(STORE_KEY, JSON.stringify({ turns: turns.slice(-MAX_TURNS), tier })); } catch (_) {}
 }
 
-function esc(s) { return s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
-function inline(s) {
-  return s.replace(/`([^`]+)`/g, "<code>$1</code>")
-          .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-}
-function md(src) {
-  const out = [];
-  const parts = esc(src).split(/```[^\n]*\n?/);
-  parts.forEach((part, i) => {
-    if (i % 2 === 1) { out.push("<pre><code>" + part.replace(/\n$/, "") + "</code></pre>"); return; }
-    let list = null, para = [];
-    const flushPara = () => { if (para.length) { out.push("<p>" + inline(para.join("<br>")) + "</p>"); para = []; } };
-    const flushList = () => { if (list) { out.push(`<${list.tag}>` + list.items.map(x => "<li>" + inline(x) + "</li>").join("") + `</${list.tag}>`); list = null; } };
-    for (const raw of part.split("\n")) {
-      const line = raw.trimEnd();
-      let m;
-      if (!line.trim()) { flushPara(); flushList(); continue; }
-      if ((m = line.match(/^#{1,6}\s+(.*)$/))) { flushPara(); flushList(); out.push("<h4>" + inline(m[1]) + "</h4>"); continue; }
-      if ((m = line.match(/^\s*[-*•]\s+(.*)$/))) { flushPara(); if (!list || list.tag !== "ul") { flushList(); list = { tag: "ul", items: [] }; } list.items.push(m[1]); continue; }
-      if ((m = line.match(/^\s*\d+[.)]\s+(.*)$/))) { flushPara(); if (!list || list.tag !== "ol") { flushList(); list = { tag: "ol", items: [] }; } list.items.push(m[1]); continue; }
-      if (list && /^\s{2,}\S/.test(line)) { list.items[list.items.length - 1] += " " + line.trim(); continue; }
-      flushList(); para.push(line);
-    }
-    flushPara(); flushList();
-  });
-  return out.join("");
-}
-
-function scrollDown() { log.scrollTop = log.scrollHeight; }
-
-// Split the hidden expression marker off Claude's text. While streaming, also hide a marker that is only half written.
-function splitSmile(raw, streaming) {
+// Turn Claude's reply into chat lines: drop the hidden expression marker and any markdown that slipped through.
+function cleanReply(raw, streaming) {
   const smile = raw.includes(SMILE);
   let text = raw.split(SMILE).join("");
   if (streaming) {
-    for (let k = SMILE.length - 1; k > 0; k--) {
-      if (text.endsWith(SMILE.slice(0, k))) { text = text.slice(0, -k); break; }
-    }
+    for (let k = SMILE.length - 1; k > 0; k--) if (text.endsWith(SMILE.slice(0, k))) { text = text.slice(0, -k); break; }
   }
-  return { text: text.trimEnd(), smile };
+  text = text
+    .replace(/```[a-z]*\n?/gi, "")
+    .replace(/\*\*(.+?)\*\*/g, "$1").replace(/__(.+?)__/g, "$1")
+    .replace(/`([^`\n]+)`/g, "$1")
+    .replace(/^[ \t]{0,3}#{1,6}[ \t]+/gm, "")
+    .replace(/^[ \t]*[-*•][ \t]+/gm, "")
+    .replace(/^[ \t]*-{3,}[ \t]*$/gm, "");
+  return { text: text.trim(), smile };
 }
+const toLines = text => text.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
 
-const FACE = { calm: "nanase-face.webp", smile: "nanase_smile-face.webp" };
-const hdrAvatar = document.getElementById("hdr-avatar");
-function setMood(smile) { hdrAvatar.src = smile ? FACE.smile : FACE.calm; }
+const timeFmt = new Intl.DateTimeFormat("ko-KR", { hour: "numeric", minute: "2-digit" });
+const dayFmt = new Intl.DateTimeFormat("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "long" });
+const dayKey = t => new Date(t).toDateString();
 
-function addTurn(role, text, imgUrl, smile) {
-  intro.hidden = true;
-  const el = document.createElement("div");
-  el.className = "turn " + (role === "user" ? "user" : "bot");
-  const who = document.createElement("span");
-  who.className = "who";
-  who.textContent = role === "user" ? "나" : "나나세";
-  const bubble = document.createElement("div");
-  bubble.className = "bubble";
-  if (imgUrl) { const im = document.createElement("img"); im.className = "attached"; im.src = imgUrl; im.alt = "첨부한 카드"; bubble.appendChild(im); }
-  let avatar = null;
-  if (role === "user") {
-    bubble.appendChild(document.createTextNode(text));
-    el.append(who, bubble);
-  } else {
-    bubble.innerHTML = md(text);
-    avatar = document.createElement("img");
-    avatar.className = "avatar";
-    avatar.alt = "";
-    avatar.src = smile ? FACE.smile : FACE.calm;
-    const col = document.createElement("div");
-    col.className = "col";
-    col.append(who, bubble);
-    el.append(avatar, col);
-  }
-  thread.appendChild(el);
+function scrollDown() { log.scrollTop = log.scrollHeight; }
+
+function divider(at) {
+  const d = document.createElement("div");
+  d.className = "divider";
+  d.textContent = dayFmt.format(new Date(at));
+  thread.appendChild(d);
+}
+function notice(msg, warn) {
+  const n = document.createElement("div");
+  n.className = "notice" + (warn ? " warn" : "");
+  n.textContent = msg;
+  thread.appendChild(n);
   scrollDown();
-  return { el: avatar ? el.querySelector(".col") : el, bubble, avatar };
+  return n;
+}
+const faceBg = smile => `#fff url(${smile ? FACE.smile : FACE.calm}) center/cover`;
+
+// One group = one sender's run of bubbles, with the time beside the last bubble.
+function makeGroup(role, smile) {
+  const g = document.createElement("div");
+  g.className = "group " + (role === "user" ? "me" : "them");
+  const stack = document.createElement("div");
+  stack.className = "stack";
+  let face = null;
+  if (role !== "user") {
+    face = document.createElement("button");
+    face.type = "button";
+    face.className = "face";
+    face.setAttribute("aria-label", "나나세 프로필 보기");
+    face.style.background = faceBg(smile);
+    face.addEventListener("click", openProfile);
+    const name = document.createElement("div");
+    name.className = "name";
+    name.textContent = "나나세";
+    stack.appendChild(name);
+    g.appendChild(face);
+  }
+  g.appendChild(stack);
+  thread.appendChild(g);
+  return {
+    g, stack,
+    add(text, photoUrl) {
+      const line = document.createElement("div");
+      line.className = "line";
+      const b = document.createElement("div");
+      b.className = "bubble";
+      if (photoUrl) { b.classList.add("photo"); const im = document.createElement("img"); im.src = photoUrl; im.alt = "보낸 카드 사진"; b.appendChild(im); }
+      else b.textContent = text;
+      line.appendChild(b);
+      stack.appendChild(line);
+      scrollDown();
+      return line;
+    },
+    stamp(at, unread) {
+      stack.querySelectorAll(".meta").forEach(m => m.remove());
+      const lines = stack.querySelectorAll(".line");
+      const last = lines[lines.length - 1];
+      if (!last) return null;
+      const meta = document.createElement("span");
+      meta.className = "meta";
+      if (unread) { const u = document.createElement("span"); u.className = "unread"; u.textContent = "1"; meta.appendChild(u); }
+      const t = document.createElement("time");
+      t.textContent = timeFmt.format(new Date(at));
+      meta.appendChild(t);
+      last.appendChild(meta);
+      return meta;
+    },
+    setFace(smile) { if (face) face.style.background = faceBg(smile); },
+  };
 }
 
 function renderAll() {
-  thread.querySelectorAll(".turn").forEach(n => n.remove());
-  intro.hidden = turns.length > 0;
-  for (const t of turns) addTurn(t.role, t.content.replace(/^\[카드 사진 첨부\]\n?/, "📎 카드 사진\n"), null, t.smile);
-  const last = [...turns].reverse().find(t => t.role === "assistant");
-  setMood(!!last?.smile);
+  thread.textContent = "";
+  const first = turns[0]?.at ?? Date.now();
+  divider(first);
+  let lastDay = dayKey(first);
+  const hello = makeGroup("assistant", false);
+  GREETING.forEach(t => hello.add(t));
+  hello.stamp(first);
+  for (const t of turns) {
+    if (dayKey(t.at) !== lastDay) { divider(t.at); lastDay = dayKey(t.at); }
+    const grp = makeGroup(t.role, t.smile);
+    if (t.role === "user") {
+      if (t.photo) grp.add("📷 카드 사진");
+      grp.add(t.content.replace(/^\[카드 사진 첨부\]\n?/, ""));
+    } else {
+      toLines(cleanReply(t.content, false).text).forEach(x => grp.add(x));
+    }
+    grp.stamp(t.at);
+  }
+  const lastBot = [...turns].reverse().find(t => t.role === "assistant");
+  setMood(!!lastBot?.smile);
+  quick.hidden = turns.length > 0 || !available;
+  if (!available) notice("지금은 나나세랑 연결이 안 돼요. claude.ai에 로그인한 상태로 이 페이지를 열어 주세요.", true);
+  scrollDown();
 }
 
+function setMood(smile) { hdrAvatar.src = smile ? FACE.smile : FACE.calm; }
+function setStatus(typing) {
+  statusEl.textContent = typing ? "입력 중…" : (available ? "대화 가능" : "연결 안 됨");
+  statusEl.classList.toggle("typing", typing);
+}
+const ICON_SEND = '<path d="M12 19V5M5.5 11.5 12 5l6.5 6.5"/>';
+const ICON_STOP = '<rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" stroke="none"/>';
 function setBusy(b) {
   busy = b;
-  send.textContent = b ? "멈춤" : "전송";
-  send.classList.toggle("stop", b);
-  input.disabled = b;
+  $("send-icon").innerHTML = b ? ICON_STOP : ICON_SEND;
+  send.setAttribute("aria-label", b ? "멈추기" : "보내기");
+  updateSend();
 }
+function updateSend() { send.disabled = !available || (!busy && !input.value.trim() && !pendingImage); }
 
 function setTier(t) {
   tier = t;
@@ -349,122 +419,304 @@ function setTier(t) {
 }
 
 const ERRORS = {
-  not_granted: "Claude 사용이 허용되지 않았습니다. 페이지를 새로 열어 허용하면 대화할 수 있습니다.",
-  sampling_disabled: "이 계정에서는 Claude를 사용할 수 없습니다.",
-  rate_limited: "요청이 많거나 사용 한도에 도달했습니다. 잠시 뒤 다시 보내 주세요.",
-  session_expired: "로그인이 만료되었습니다. 다시 로그인한 뒤 보내 주세요.",
-  refused: "이 질문에는 답할 수 없습니다. 표현을 바꿔 다시 물어봐 주세요.",
-  prompt_too_large: "대화가 너무 길어졌습니다. '새 대화'로 다시 시작해 주세요.",
-  image_rejected: "이미지를 읽지 못했습니다. JPG나 PNG 사진으로 다시 첨부해 주세요.",
-  images_unavailable: "이 화면에서는 이미지를 보낼 수 없습니다. 카드 텍스트를 직접 붙여 넣어 주세요.",
-  empty_completion: "답변이 비어 있습니다. 질문을 조금 바꿔 다시 보내 주세요.",
+  not_granted: "Claude 사용이 허용되지 않아서 나나세가 답할 수 없어요. 페이지를 다시 열고 허용해 주세요.",
+  sampling_disabled: "이 계정에서는 Claude를 쓸 수 없어요.",
+  rate_limited: "메시지가 너무 많거나 사용 한도에 닿았어요. 잠시 뒤에 다시 보내 주세요.",
+  session_expired: "로그인이 만료됐어요. 다시 로그인한 뒤 보내 주세요.",
+  refused: "이 메시지에는 답할 수 없어요. 표현을 바꿔서 다시 보내 주세요.",
+  prompt_too_large: "대화가 너무 길어졌어요. 메뉴에서 대화 내용을 지우고 다시 시작해 주세요.",
+  image_rejected: "사진을 읽지 못했어요. JPG나 PNG로 다시 보내 주세요.",
+  images_unavailable: "여기서는 사진을 보낼 수 없어요. 카드 텍스트를 직접 붙여 넣어 주세요.",
+  empty_completion: "답장이 비어 있어요. 조금 바꿔서 다시 보내 주세요.",
 };
 const HIDE = new Set(["not_granted", "sampling_disabled", "not_declared", "capability_disabled", "capability_removed"]);
 
+// ---- Card database (YGOPRODeck snapshot published next to this page) ----
+let dbPromise = null;
+const norm = s => String(s).toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, " ").trim();
+function loadDb() {
+  if (!dbPromise) {
+    dbPromise = fetch("cards.json")
+      .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(d => {
+        const F = d.fields, cards = d.cards.map(row => Object.fromEntries(F.map((f, i) => [f, row[i]])));
+        const byName = new Map(), keys = [];
+        cards.forEach((c, i) => { const k = norm(c.name); byName.set(k, i); keys.push(k); });
+        return { cards, byName, keys, archetypes: new Set(cards.map(c => norm(c.archetype)).filter(Boolean)) };
+      })
+      .catch(err => { dbPromise = null; throw err; });
+  }
+  return dbPromise;
+}
+
+function findCard(db, name) {
+  const q = norm(name);
+  if (!q) return null;
+  if (db.byName.has(q)) return db.cards[db.byName.get(q)];
+  // Name contained in a card name (shortest wins), then best word overlap.
+  let best = -1, bestLen = Infinity;
+  db.keys.forEach((k, i) => { if (k.includes(q) && k.length < bestLen) { best = i; bestLen = k.length; } });
+  if (best >= 0) return db.cards[best];
+  const words = q.split(" ").filter(w => w.length > 1);
+  if (words.length < 2) return null;
+  let score = 0;
+  db.keys.forEach((k, i) => {
+    const kw = new Set(k.split(" "));
+    const hit = words.filter(w => kw.has(w)).length / Math.max(words.length, kw.size);
+    if (hit > score) { score = hit; best = i; }
+  });
+  return score >= 0.6 ? db.cards[best] : null;
+}
+
+function archetypeCards(db, name, limit) {
+  const q = norm(name);
+  if (!db.archetypes.has(q)) return [];
+  return db.cards.filter(c => norm(c.archetype) === q).slice(0, limit);
+}
+
+const BAN = { Forbidden: "금지", Limited: "제한", "Semi-Limited": "준제한" };
+function cardBlock(c) {
+  const stats = [];
+  if (c.attribute) stats.push(c.attribute);
+  if (c.race) stats.push(c.race);
+  if (c.level != null) stats.push((/Link/.test(c.type) ? "LINK-" : /XYZ/i.test(c.type) ? "Rank " : "Level ") + c.level);
+  if (c.scale != null) stats.push("Scale " + c.scale);
+  if (c.atk != null) stats.push("ATK " + c.atk + (c.def != null ? " / DEF " + c.def : ""));
+  const ban = [c.ban_tcg && "TCG " + (BAN[c.ban_tcg] || c.ban_tcg), c.ban_ocg && "OCG " + (BAN[c.ban_ocg] || c.ban_ocg)].filter(Boolean).join(", ");
+  return [
+    `■ ${c.name} (${c.type})`,
+    stats.length ? stats.join(" | ") : "",
+    c.archetype ? "Archetype: " + c.archetype : "",
+    "금지·제한: " + (ban || "제한 없음"),
+    c.desc,
+  ].filter(Boolean).join("\n");
+}
+
+// A quick first call names the cards the message is about; the page then looks them up.
+async function lookupCards(history, image, signal) {
+  let db;
+  try { db = await loadDb(); } catch (_) { return { cards: [], dbError: true }; }
+  const recent = history.slice(-6).map(t => (t.role === "user" ? "사용자: " : "나나세: ") + t.content.slice(0, 600)).join("\n");
+  const prompt = `유희왕 카드 채팅의 마지막 사용자 메시지가 어떤 카드나 테마를 말하는지 뽑아 줘. 앞 대화는 '그 카드' 같은 지칭을 풀 때만 참고해.
+카드는 공식 영어(TCG) 카드 이름으로 바꿔서 적어. 한국어·일본어 이름이나 별명, 줄임말도 공식 영어 이름으로 바꿔. 확실하지 않아도 가장 그럴듯한 이름을 적어.
+테마(아키타입)를 묻는 거면 영어 아키타입 이름을 archetypes에 적어. 특정 카드나 테마 얘기가 아니면 둘 다 빈 배열.
+${image ? "첨부된 사진 속 카드도 포함해.\n" : ""}JSON 하나만 답해. 형식: {"cards":["Dark Magician"],"archetypes":["Blue-Eyes"]} (cards 최대 5개, archetypes 최대 2개)
+
+[대화]
+${recent}`;
+  let want;
+  try {
+    const opts = { modelTier: "quick", signal };
+    if (image) opts.images = image;
+    want = await sample.json(prompt, opts);
+  } catch (e) {
+    if (e && (e.code === "cancelled" || HIDE.has(e.code))) throw e;
+    return { cards: [] };
+  }
+  const names = Array.isArray(want?.cards) ? want.cards.filter(x => typeof x === "string").slice(0, 5) : [];
+  const archs = Array.isArray(want?.archetypes) ? want.archetypes.filter(x => typeof x === "string").slice(0, 2) : [];
+  const found = [], missing = [];
+  for (const n of names) {
+    const c = findCard(db, n);
+    if (c && !found.includes(c)) found.push(c); else if (!c) missing.push(n);
+  }
+  for (const a of archs) for (const c of archetypeCards(db, a, 6)) if (found.length < 10 && !found.includes(c)) found.push(c);
+  return { cards: found, missing, archetypes: archs };
+}
+
+function lookupNote(res) {
+  if (res.dbError) return "카드 데이터를 불러오지 못해서 검색 없이 답해요";
+  if (!res.cards.length && !(res.missing || []).length) return null;
+  const names = res.cards.slice(0, 3).map(c => c.name).join(", ") + (res.cards.length > 3 ? ` 외 ${res.cards.length - 3}장` : "");
+  if (!res.cards.length) return `카드 DB에서 못 찾음: ${res.missing.join(", ")}`;
+  return `카드 DB 확인: ${names}`;
+}
+
 async function ask(text) {
-  if (!sample || busy || !text.trim()) return;
+  if (!sample || busy) return;
   const image = pendingImage;
-  clearAttach();
-  const content = (image ? "[카드 사진 첨부]\n" : "") + text.trim();
-  turns.push({ role: "user", content });
-  addTurn("user", text.trim(), image ? URL.createObjectURL(image) : null);
-  const { el, bubble, avatar } = addTurn("assistant", "");
-  setMood(false);
-  bubble.classList.add("thinking");
-  bubble.textContent = tier === "complex" ? "판정을 정리하는 중…" : "생각하는 중…";
+  const body = text.trim() || (image ? "이 카드 뭐야?" : "");
+  if (!body) return;
+  clearPending();
+  quick.hidden = true;
+  const now = Date.now();
+  const lastAt = turns.length ? turns[turns.length - 1].at : null;
+  if (lastAt && dayKey(lastAt) !== dayKey(now)) divider(now);
+
+  const mine = makeGroup("user");
+  if (image) mine.add("", URL.createObjectURL(image));
+  mine.add(body);
+  const meta = mine.stamp(now, true);
+  turns.push({ role: "user", content: (image ? "[카드 사진 첨부]\n" : "") + body, at: now, photo: !!image });
+  save();
+
   setBusy(true);
   ctl = new AbortController();
   const history = turns.slice(-MAX_TURNS).map(t => ({ role: t.role, content: t.content }));
   while (history.length && history[0].role !== "user") history.shift();
+
+  // The friend "reads" the message a moment later, then starts typing.
+  let reply = null, typingLine = null, shown = 0;
+  const startTyping = () => {
+    meta?.querySelector(".unread")?.remove();
+    if (reply) return;
+    reply = makeGroup("assistant", false);
+    typingLine = reply.add("");
+    typingLine.firstChild.innerHTML = '<span class="dots" aria-label="입력 중"><i></i><i></i><i></i></span>';
+    setStatus(true);
+  };
+  const readTimer = setTimeout(startTyping, 650);
+  const showLines = (lines) => {
+    startTyping();
+    while (shown < lines.length) {
+      const line = reply.add(lines[shown]);
+      reply.stack.insertBefore(line, typingLine);
+      shown++;
+    }
+    scrollDown();
+  };
+
   const opts = {
     cache: false,
     signal: ctl.signal,
     modelTier: tier,
     onText: ({ text }) => {
-      const s = splitSmile(text, true);
-      bubble.classList.remove("thinking");
-      bubble.innerHTML = md(s.text);
-      scrollDown();
+      const lines = toLines(cleanReply(text, true).text);
+      showLines(lines.slice(0, -1)); // the message still being written stays behind the typing dots
     },
   };
   if (image) opts.images = image;
+
   try {
+    const lookup = await lookupCards(turns.slice(-MAX_TURNS), image, ctl.signal);
+    const note = lookupNote(lookup);
+    if (note) {
+      const el = document.createElement("div");
+      el.className = "lookup";
+      el.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>';
+      const s = document.createElement("span");
+      s.textContent = note;
+      el.appendChild(s);
+      if (reply) thread.insertBefore(el, reply.g); else thread.appendChild(el);
+      scrollDown();
+    }
+    if (lookup.cards.length || (lookup.missing || []).length) {
+      const parts = lookup.cards.map(cardBlock);
+      if ((lookup.missing || []).length) parts.push("DB에서 찾지 못한 이름: " + lookup.missing.join(", "));
+      const last = history[history.length - 1];
+      history[history.length - 1] = {
+        role: "user",
+        content: `${last.content}\n\n[카드 DB 조회 결과 - 사용자가 쓴 글이 아니라 페이지가 붙인 정보, ${DB_DATE} 기준]\n${parts.join("\n\n")}`,
+      };
+    }
     const res = await sample([{ role: "user", content: RULES }, ...history], opts);
-    const s = splitSmile(res.text, false);
-    bubble.innerHTML = md(s.text);
-    avatar.src = s.smile ? FACE.smile : FACE.calm;
-    setMood(s.smile);
-    turns.push({ role: "assistant", content: s.text || res.text, smile: s.smile });
-    if (res.truncated) addNote(el, "답변이 길어 중간에 끊겼습니다. 나눠서 물어봐 주세요.");
+    clearTimeout(readTimer);
+    const r = cleanReply(res.text, false);
+    showLines(toLines(r.text));
+    typingLine.remove();
+    reply.setFace(r.smile);
+    setMood(r.smile);
+    const at = Date.now();
+    reply.stamp(at);
+    turns.push({ role: "assistant", content: r.text || res.text, smile: r.smile, at });
+    if (res.truncated) notice("답장이 길어서 중간에 끊겼어요.");
   } catch (e) {
+    clearTimeout(readTimer);
     const code = e && e.code;
-    const partial = e?.text ? splitSmile(e.text, true).text : "";
-    if (code === "refused" || !partial) { bubble.classList.remove("thinking"); bubble.textContent = code === "cancelled" ? "(멈춤)" : ""; }
-    else bubble.innerHTML = md(partial);
-    if (partial && code !== "refused") turns.push({ role: "assistant", content: partial, smile: false });
-    if (code !== "cancelled") addNote(el, ERRORS[code] || "연결이 끊겼습니다. 다시 보내 주세요.");
+    meta?.querySelector(".unread")?.remove();
+    if (reply) {
+      if (code === "refused") { reply.stack.querySelectorAll(".line").forEach(l => { if (l !== typingLine) l.remove(); }); shown = 0; }
+      else if (e?.text) showLines(toLines(cleanReply(e.text, true).text));
+      typingLine.remove();
+      const kept = [...reply.stack.querySelectorAll(".line .bubble")].map(b => b.textContent);
+      if (!kept.length) reply.g.remove();
+      else {
+        const at = Date.now();
+        reply.stamp(at);
+        turns.push({ role: "assistant", content: kept.join("\n\n"), smile: false, at });
+      }
+    }
+    if (code !== "cancelled") notice(ERRORS[code] || "연결이 끊겼어요. 다시 보내 주세요.", true);
     if (code === "images_unavailable") attachBtn.hidden = true;
-    if (HIDE.has(code)) { input.placeholder = "Claude에 연결할 수 없습니다"; send.disabled = true; }
-    if (!bubble.textContent.trim()) bubble.remove();
+    if (HIDE.has(code)) { available = false; input.placeholder = "나나세와 연결할 수 없어요"; }
   } finally {
     ctl = null;
+    setStatus(false);
     setBusy(false);
     save();
-    input.focus();
     scrollDown();
   }
 }
 
-function addNote(el, msg) { const n = document.createElement("span"); n.className = "note"; n.textContent = msg; el.appendChild(n); }
-
-function clearAttach() {
-  pendingImage = null; fileInput.value = ""; attachRow.hidden = true;
-  const p = document.getElementById("attach-preview"); if (p.src) { URL.revokeObjectURL(p.src); p.removeAttribute("src"); }
+function clearPending() {
+  const img = $("pending-img");
+  if (img.src) { URL.revokeObjectURL(img.src); img.removeAttribute("src"); }
+  pendingImage = null; fileInput.value = ""; pending.hidden = true;
+  updateSend();
 }
 
 form.addEventListener("submit", e => {
   e.preventDefault();
   if (busy) { ctl?.abort(); return; }
-  const text = input.value || (pendingImage ? "이 카드의 효과를 설명해 줘" : "");
-  if (!text.trim()) return;
+  const text = input.value;
+  if (!text.trim() && !pendingImage) return;
   input.value = ""; autoGrow();
   ask(text);
 });
 input.addEventListener("keydown", e => {
   if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); form.requestSubmit(); }
 });
-function autoGrow() { input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight, 160) + "px"; }
+function autoGrow() { input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight, 140) + "px"; updateSend(); }
 input.addEventListener("input", autoGrow);
-
-document.querySelectorAll(".chip").forEach(c => c.addEventListener("click", () => ask(c.textContent.replace(c.querySelector(".tag").textContent, "").trim())));
-document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => setTier(b.dataset.tier)));
-document.getElementById("reset").addEventListener("click", () => { ctl?.abort(); turns = []; save(); renderAll(); clearAttach(); input.focus(); });
+quick.querySelectorAll("button").forEach(b => b.addEventListener("click", () => ask(b.textContent)));
 
 attachBtn.addEventListener("click", () => fileInput.click());
 fileInput.addEventListener("change", () => {
   const f = fileInput.files && fileInput.files[0];
   if (!f) return;
   pendingImage = f;
-  document.getElementById("attach-preview").src = URL.createObjectURL(f);
-  document.getElementById("attach-name").textContent = f.name;
-  attachRow.hidden = false;
+  $("pending-img").src = URL.createObjectURL(f);
+  pending.hidden = false;
+  updateSend();
   input.focus();
 });
-document.getElementById("attach-clear").addEventListener("click", clearAttach);
+$("pending-clear").addEventListener("click", clearPending);
+
+// Menu
+const menu = $("menu"), menuBtn = $("menu-btn"), clearBtn = $("clear-btn");
+function closeMenu() { menu.hidden = true; menuBtn.setAttribute("aria-expanded", "false"); clearBtn.classList.remove("danger"); clearBtn.textContent = "대화 내용 지우기"; }
+menuBtn.addEventListener("click", e => { e.stopPropagation(); if (menu.hidden) { menu.hidden = false; menuBtn.setAttribute("aria-expanded", "true"); } else closeMenu(); });
+menu.addEventListener("click", e => e.stopPropagation());
+document.addEventListener("click", () => { if (!menu.hidden) closeMenu(); });
+document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => setTier(b.dataset.tier)));
+clearBtn.addEventListener("click", () => {
+  if (!clearBtn.classList.contains("danger")) { clearBtn.classList.add("danger"); clearBtn.textContent = "한 번 더 누르면 모두 지워져요"; return; }
+  ctl?.abort(); turns = []; save(); renderAll(); closeMenu(); input.focus();
+});
+
+// Profile
+const profile = $("profile");
+function openProfile() { profile.hidden = false; $("profile-close").focus(); }
+$("contact").addEventListener("click", openProfile);
+$("profile-close").addEventListener("click", () => { profile.hidden = true; });
+profile.addEventListener("click", e => { if (e.target === profile) profile.hidden = true; });
+document.addEventListener("keydown", e => { if (e.key === "Escape") { profile.hidden = true; closeMenu(); } });
 
 load();
 setTier(tier);
 renderAll();
+setStatus(false);
+updateSend();
 
 (async () => {
   try { sample = window.claude ? await window.claude.use("sample") : null; } catch (_) { sample = null; }
   if (!sample) {
-    document.getElementById("unavailable").hidden = false;
-    intro.hidden = false;
-    send.disabled = true;
-    input.placeholder = "Claude에 연결할 수 없습니다";
+    available = false;
+    input.placeholder = "나나세와 연결할 수 없어요";
+    setStatus(false); updateSend(); renderAll();
     return;
   }
+  loadDb().catch(() => {}); // warm the card data while the viewer types
   try {
     const lim = await sample.limits();
     attachBtn.hidden = !lim?.images;
